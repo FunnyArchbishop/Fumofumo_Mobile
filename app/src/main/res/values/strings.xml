@@ -6,9 +6,13 @@
     <string name="subtitle">把 fumo 放到桌面上飘着</string>
 
     <string name="model_none">还没有选择模型</string>
-    <string name="model_current">当前模型：%1$s（%2$s）</string>
+    <string name="model_current">模型：%1$s（%2$s）</string>
+    <string name="texture_none">贴图：使用模型自带的贴图</string>
+    <string name="texture_current">贴图：已自定义（%1$s）</string>
 
-    <string name="btn_pick_model">选择模型（.glb）</string>
+    <string name="btn_pick_model">选择模型（glb / gltf / obj / usdz / zip）</string>
+    <string name="btn_pick_texture">自定义贴图</string>
+    <string name="btn_clear_texture">清除贴图</string>
     <string name="btn_start">启动桌宠</string>
     <string name="btn_stop">停止桌宠</string>
     <string name="btn_settings">参数设置</string>
@@ -18,23 +22,30 @@
     <string name="notif_missing">通知权限：未授权（桌宠仍可用，但通知栏里看不到它）</string>
 
     <string name="help_title">怎么玩</string>
-    <string name="help_body">· 单指拖动：拎起来甩\n· 双指横向 / 纵向拖动：转动模型\n· 长按：打开设置\n· 从屏幕边缘撞出去会被弹回来</string>
+    <string name="help_body">· 单指拖动：拎起来甩\n· 双指横向 / 纵向拖动：转动模型\n· 长按：打开菜单（设置 / 停止）\n· 桌宠以外的地方照常可以点，不会挡住你</string>
+
+    <string name="formats_body">支持格式：.glb（推荐，单文件）、.gltf（需连同 .bin 一起打包成 zip）、.obj（连同 .mtl 和贴图打包成 zip）、.usdz / .usdc、.zip。扩展名被改过也能认。</string>
+
+    <string name="menu_title">桌宠</string>
+    <string name="menu_cancel">取消</string>
 
     <string name="pet_running">桌宠运行中</string>
     <string name="pet_stopped">桌宠已停止</string>
     <string name="notif_channel_name">桌宠常驻</string>
     <string name="notif_channel_desc">保持桌宠在其他应用上方显示</string>
     <string name="notif_title">Fumofumo 正在桌面上</string>
-    <string name="notif_text">点开可以换模型或调整参数</string>
+    <string name="notif_text">长按桌宠可以设置或停止</string>
     <string name="notif_action_settings">设置</string>
     <string name="notif_action_stop">停止</string>
 
-    <string name="importing">正在导入模型…</string>
+    <string name="importing">正在导入…</string>
     <string name="import_failed">导入失败：%1$s</string>
     <string name="load_failed">模型加载失败：%1$s</string>
+    <string name="texture_imported">贴图已导入</string>
+    <string name="texture_cleared">已清除自定义贴图</string>
     <string name="model_loaded">模型已载入：%1$d 个三角面</string>
 
-    <string name="need_model_first">请先选择一个 .glb 模型</string>
+    <string name="need_model_first">请先选择一个模型</string>
     <string name="need_overlay_first">请先授予悬浮窗权限</string>
 
     <string name="p_gravity">重力</string>
@@ -46,7 +57,7 @@
     <string name="p_height">占屏高度</string>
     <string name="p_ambient">环境光</string>
     <string name="p_gamma">伽马</string>
-    <string name="p_flip">翻转贴图（贴图上下颠倒时打开）</string>
+    <string name="p_flip">贴图上下翻转（贴图倒了就打开）</string>
     <string name="btn_reset_default">恢复默认</string>
     <string name="btn_done">完成</string>
 </resources>

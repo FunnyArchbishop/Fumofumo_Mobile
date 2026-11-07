@@ -41,9 +41,12 @@ android {
     }
 }
 
-// 单元测试可以把真实模型路径传进去：gradle testDebugUnitTest -DtestModel=D:/path/model.glb
+// 单元测试可以把真实模型路径传进去，例如：
+//   gradle testDebugUnitTest -DtestGlb=D:/m/model.glb -DtestUsdc=D:/m/scene.usdc
 tasks.withType<Test>().configureEach {
-    systemProperty("testModel", System.getProperty("testModel") ?: "")
+    listOf("testGlb", "testUsdc", "testModel").forEach { key ->
+        systemProperty(key, System.getProperty(key) ?: "")
+    }
 }
 
 dependencies {

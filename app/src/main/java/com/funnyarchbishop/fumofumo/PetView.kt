@@ -13,7 +13,9 @@ import kotlin.math.hypot
 
 /**
  * 悬浮层里的宠物视图。
- * 用 TextureView 渲染（而不是 GLSurfaceView），悬浮窗的透明背景才正常。
+ *
+ * 悬浮窗只包住模型，所以这里的触摸坐标是**窗口内**坐标，
+ * 要加上窗口左上角偏移才换算成屏幕坐标，再翻成物理用的 y 向上坐标。
  */
 class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextureListener {
 
@@ -22,8 +24,15 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
     private var renderer: PetRenderer? = null
     private var mesh: MeshData? = null
 
+    // 窗口在屏幕上的位置（y 向下）
+    private var winLeft = 0
+    private var winTop = 0
+    private var screenHeight = 0
+
     var onLongPress: (() -> Unit)? = null
     var onMessage: ((String) -> Unit)? = null
+    var onModelError: ((String) -> Unit)? = null
+    var onWindowRect: ((Int, Int, Int) -> Unit)? = null
 
     private var dragging = false
     private var multiTouch = false
@@ -37,9 +46,11 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
     private var throwVy = 0f
 
     private val longPressRunnable = Runnable {
-        if (dragging && !multiTouch) {
-            dragging = false
-            renderer?.endDrag(0f, 0f)
+        if (!multiTouch) {
+            if (dragging) {
+                dragging = false
+                renderer?.endDrag(0f, 0f)
+            }
             onLongPress?.invoke()
         }
     }
@@ -52,12 +63,12 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
     fun loadModelAsync(file: File) {
         thread(name = "pet-model-loader") {
             try {
-                val data = GlbLoader.load(file)
+                val data = ModelImporter.load(file, context.cacheDir)
                 mesh = data
                 renderer?.setMesh(data)
                 post { onMessage?.invoke("模型已载入：${data.triangleCount} 个三角面") }
             } catch (t: Throwable) {
-                post { onMessage?.invoke("模型加载失败：${t.message}") }
+                post { onModelError?.invoke(t.message ?: "未知错误") }
             }
         }
     }
@@ -76,7 +87,20 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
     // ---------------- SurfaceTexture ----------------
 
     override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
-        val r = PetRenderer(st, prefs) { msg -> post { onMessage?.invoke(msg) } }
+        val metrics = resources.displayMetrics
+        screenHeight = maxOf(metrics.heightPixels, metrics.widthPixels)
+        val r = PetRenderer(
+            surfaceTexture = st,
+            prefs = prefs,
+            customTexture = { ModelRepository.textureFile(context) },
+            onMessage = { msg -> post { onMessage?.invoke(msg) } },
+            onWindowRect = { left, top, size ->
+                winLeft = left
+                winTop = top
+                post { onWindowRect?.invoke(left, top, size) }
+            }
+        )
+        r.setScreenSize(metrics.widthPixels, metrics.heightPixels)
         r.resize(width, height)
         mesh?.let { r.setMesh(it) }
         renderer = r
@@ -102,27 +126,30 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
 
     // ---------------- 手势 ----------------
 
-    /** 屏幕 y（向下为正）→ 世界 y（向上为正），和桌面版坐标一致 */
-    private fun toWorldY(y: Float): Float = height - y
+    private fun worldX(eventX: Float): Float = winLeft + eventX
+
+    private fun worldY(eventY: Float): Float {
+        val screenH = if (screenHeight > 0) screenHeight else height
+        return screenH - (winTop + eventY)
+    }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val r = renderer ?: return false
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                val wx = event.x
-                val wy = toWorldY(event.y)
-                if (!r.hitTest(wx, wy)) return false // 模型外的触摸透传给下面的应用
-                dragging = true
+                // 窗口本来就只包住模型，所以这里一律接管；
+                // 但只有真的按在模型上才开始拖拽（按在边缘留白处则是长按菜单）。
                 multiTouch = false
-                downX = wx
-                downY = wy
-                lastMoveX = wx
-                lastMoveY = wy
+                downX = event.x
+                downY = event.y
+                lastMoveX = worldX(event.x)
+                lastMoveY = worldY(event.y)
                 throwVx = 0f
                 throwVy = 0f
-                r.beginDrag(wx, wy)
-                handler.postDelayed(longPressRunnable, 550)
+                dragging = r.hitTest(lastMoveX, lastMoveY)
+                if (dragging) r.beginDrag(lastMoveX, lastMoveY)
+                handler.postDelayed(longPressRunnable, 500)
                 return true
             }
 
@@ -137,11 +164,10 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (!dragging) return false
-                // downX/downY 是世界坐标（y 向上），换算回屏幕坐标再算距离
-                if (hypot(event.x - downX, event.y - (height - downY)) > 24f) {
+                if (hypot(event.x - downX, event.y - downY) > 24f) {
                     handler.removeCallbacks(longPressRunnable)
                 }
+                if (!dragging) return true
                 if (multiTouch && event.pointerCount >= 2) {
                     val mx = event.getX(0)
                     val my = event.getY(0)
@@ -149,10 +175,10 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
                     val dy = my - lastMultiY
                     lastMultiX = mx
                     lastMultiY = my
-                    r.spinBy(dx, -dy) // 屏幕 y 向下，转成 y 向上
+                    r.spinBy(dx, -dy)
                 } else {
-                    val wx = event.x
-                    val wy = toWorldY(event.y)
+                    val wx = worldX(event.x)
+                    val wy = worldY(event.y)
                     throwVx = wx - lastMoveX
                     throwVy = wy - lastMoveY
                     lastMoveX = wx

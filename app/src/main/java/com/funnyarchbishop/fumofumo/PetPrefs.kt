@@ -45,8 +45,12 @@ class PetPrefs(context: Context) {
         sp.edit().putFloat(key, value).apply()
     }
 
+    /**
+     * 贴图上下翻转。默认关闭：glTF / OBJ（本程序已把 UV 统一成 glTF 约定）都是正的，
+     * 只有个别模型贴图会颠倒，那时在设置里打开。
+     */
     var flipTexture: Boolean
-        get() = sp.getBoolean(KEY_FLIP, true)
+        get() = sp.getBoolean(KEY_FLIP, false)
         set(value) {
             sp.edit().putBoolean(KEY_FLIP, value).apply()
         }
@@ -54,7 +58,7 @@ class PetPrefs(context: Context) {
     fun resetDefaults() {
         val e = sp.edit()
         Params.LIST.forEach { e.putFloat(it.key, it.default) }
-        e.putBoolean(KEY_FLIP, true)
+        e.putBoolean(KEY_FLIP, false)
         e.apply()
     }
 

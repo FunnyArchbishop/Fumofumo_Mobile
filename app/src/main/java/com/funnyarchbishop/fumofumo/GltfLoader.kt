@@ -9,27 +9,15 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 
-/** 摊平后的三角面数据：每个角一份顶点，不共享（和桌面版 WINobj 的处理方式一致） */
-class MeshData(
-    val positions: FloatArray,
-    val normals: FloatArray,
-    val uvs: FloatArray,
-    val texture: Bitmap?,
-    val min: FloatArray,
-    val max: FloatArray
-) {
-    val vertexCount: Int get() = positions.size / 3
-    val triangleCount: Int get() = positions.size / 9
-}
-
 /**
- * 极简 GLB（glTF 2.0 二进制）读取器：
- *   · 只读单文件 glb（贴图内嵌）
- *   · 支持节点层级 / 矩阵 / TRS、三角面、UV、baseColor 与 emissive 贴图
- *   · 多边形自动扇形三角化
- * 需要外部 .bin 或 Draco 压缩的模型会明确报错，而不是默默画错。
+ * glTF 2.0 读取器，两种形态都吃：
+ *   · `.glb` —— 单文件二进制（贴图内嵌）
+ *   · `.gltf` —— JSON + 外部 .bin / 贴图（需要同目录一起提供，通常来自 zip 解包）
+ *
+ * 支持节点层级 / 矩阵 / TRS、UV、baseColor 与 emissive 贴图、多边形扇形三角化。
+ * Draco 压缩、外部 URL 资源会明确报错，而不是默默画错。
  */
-object GlbLoader {
+object GltfLoader {
 
     private const val MAGIC_GLTF = 0x46546C67
     private const val CHUNK_JSON = 0x4E4F534A
@@ -42,18 +30,18 @@ object GlbLoader {
     private const val COMP_UINT = 5125
     private const val COMP_FLOAT = 5126
 
-    fun load(file: File): MeshData {
+    /** 单文件 glb */
+    fun loadGlb(file: File): MeshData {
         val bytes = file.readBytes()
         require(bytes.size >= 12) { "文件太小，不像是 glb" }
 
         val header = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
-        val magic = header.int
-        require(magic == MAGIC_GLTF) { "不是 glb 文件（文件头不对）" }
+        require(header.int == MAGIC_GLTF) { "不是 glb 文件（文件头不对）" }
         header.int // version
         header.int // total length
 
-        var gltf: JSONObject? = null
-        var bin: ByteBuffer? = null
+        var json: JSONObject? = null
+        var binChunk: ByteArray? = null
         var offset = 12
         while (offset + 8 <= bytes.size) {
             header.position(offset)
@@ -63,32 +51,37 @@ object GlbLoader {
             val chunk = ByteArray(chunkLength)
             System.arraycopy(bytes, offset + 8, chunk, 0, chunkLength)
             when (chunkType) {
-                CHUNK_JSON -> gltf = JSONObject(String(chunk, Charsets.UTF_8))
-                CHUNK_BIN -> bin = ByteBuffer.wrap(chunk).order(ByteOrder.LITTLE_ENDIAN)
+                CHUNK_JSON -> json = JSONObject(String(chunk, Charsets.UTF_8))
+                CHUNK_BIN -> binChunk = chunk
             }
             offset += 8 + chunkLength
         }
 
-        val root = requireNotNull(gltf) { "glb 里没有 JSON 块，文件可能损坏" }
-        val binBuf = bin
+        val root = requireNotNull(json) { "glb 里没有 JSON 块，文件可能损坏" }
+        return parse(root, binChunk, file.parentFile, file.name)
+    }
 
-        // 只支持内嵌 buffer（单文件 glb）
-        root.optJSONArray("buffers")?.let { buffers ->
-            for (i in 0 until buffers.length()) {
-                val uri = buffers.optJSONObject(i)?.optString("uri", "") ?: ""
-                if (uri.isNotEmpty() && !uri.startsWith("data:")) {
-                    throw IllegalStateException("这个模型依赖外部文件（$uri），请用单文件 .glb")
-                }
-            }
-        }
-        if (binBuf == null && (root.optJSONArray("meshes")?.length() ?: 0) > 0) {
-            throw IllegalStateException("glb 里没有二进制数据块")
-        }
+    /** .gltf（JSON 文本）+ 同目录资源 */
+    fun loadGltf(jsonFile: File): MeshData {
+        val text = jsonFile.readText()
+        val root = JSONObject(text)
+        return parse(root, null, jsonFile.parentFile, jsonFile.name)
+    }
 
+    // ---------------- 主体 ----------------
+
+    private fun parse(
+        root: JSONObject,
+        glbBin: ByteArray?,
+        baseDir: File?,
+        sourceName: String
+    ): MeshData {
+        val buffers = readBuffers(root, glbBin, baseDir)
         val bufferViews = root.optJSONArray("bufferViews") ?: JSONArray()
         val accessors = root.optJSONArray("accessors") ?: JSONArray()
         val meshes = root.optJSONArray("meshes") ?: JSONArray()
         val nodes = root.optJSONArray("nodes") ?: JSONArray()
+        require(meshes.length() > 0) { "这个 glTF 里没有网格数据" }
 
         // ---- 节点世界矩阵 ----
         val worldOf = HashMap<Int, FloatArray>()
@@ -117,18 +110,7 @@ object GlbLoader {
         } else {
             for (i in 0 until nodes.length()) if (i !in childIndices) sceneRoots.add(i)
         }
-        if (sceneRoots.isEmpty() && nodes.length() > 0) {
-            for (i in 0 until nodes.length()) if (i !in childIndices) sceneRoots.add(i)
-        }
         sceneRoots.forEach { visit(it, identity4()) }
-
-        // 没有任何节点但有 mesh 时，按单位矩阵直接读
-        if (worldOf.isEmpty()) {
-            for (i in 0 until nodes.length()) worldOf[i] = identity4()
-            if (nodes.length() == 0 && meshes.length() > 0) {
-                // 交给下面的兜底：把 mesh 当成挂在单位矩阵上
-            }
-        }
 
         // ---- 收集三角面 ----
         val posOut = ArrayList<Float>(1 shl 16)
@@ -148,34 +130,33 @@ object GlbLoader {
 
             for (pi in 0 until prims.length()) {
                 val prim = prims.optJSONObject(pi) ?: continue
-                if (prim.optJSONObject("extensions")
-                        ?.has("KHR_draco_mesh_compression") == true
-                ) {
+                if (prim.optJSONObject("extensions")?.has("KHR_draco_mesh_compression") == true) {
                     throw IllegalStateException(
-                        "这个 glb 用了 Draco 压缩，暂不支持。\n请下载未压缩的 glb，或用桌面版另存一份。"
+                        "这个模型用了 Draco 压缩，暂不支持。\n请下载未压缩的版本，或用桌面版另存一份。"
                     )
                 }
                 val attrs = prim.optJSONObject("attributes") ?: continue
                 val posAccessor = attrs.optInt("POSITION", -1)
                 if (posAccessor < 0) continue
 
-                val pos = readFloats(accessors, bufferViews, binBuf, posAccessor) ?: continue
+                val pos = readFloats(accessors, bufferViews, buffers, posAccessor) ?: continue
                 val vertexCount = pos.size / 3
                 if (vertexCount == 0) continue
                 val nrmAccessor = attrs.optInt("NORMAL", -1)
                 val uvAccessor = attrs.optInt("TEXCOORD_0", -1)
-                val nrm = if (nrmAccessor >= 0) readFloats(accessors, bufferViews, binBuf, nrmAccessor) else null
-                val uv = if (uvAccessor >= 0) readFloats(accessors, bufferViews, binBuf, uvAccessor) else null
+                val nrm = if (nrmAccessor >= 0) readFloats(accessors, bufferViews, buffers, nrmAccessor) else null
+                val uv = if (uvAccessor >= 0) readFloats(accessors, bufferViews, buffers, uvAccessor) else null
                 val idxAccessor = prim.optInt("indices", -1)
-                val indices = if (idxAccessor >= 0) readInts(accessors, bufferViews, binBuf, idxAccessor) else null
+                val indices = if (idxAccessor >= 0) readInts(accessors, bufferViews, buffers, idxAccessor) else null
 
                 val cornerCount = indices?.size ?: vertexCount
                 val triCount = cornerCount / 3
 
-                // 贴图：取面数最多的那份材质（和桌面版策略一致）
                 val materialIndex = prim.optInt("material", -1)
                 if (materialIndex >= 0 && triCount > bestTextureTris) {
-                    val bmp = materialBitmap(root, bufferViews, binBuf, materialIndex, bitmapCache)
+                    val bmp = materialBitmap(
+                        root, bufferViews, buffers, baseDir, materialIndex, bitmapCache
+                    )
                     if (bmp != null) {
                         bestTextureTris = triCount
                         bestTexture = bmp
@@ -234,17 +215,56 @@ object GlbLoader {
             }
         }
 
-        require(posOut.isNotEmpty()) { "这个 glb 里没有可用的三角面" }
+        require(posOut.isNotEmpty()) { "这个模型里没有可用的三角面" }
 
         val positions = FloatArray(posOut.size) { posOut[it] }
         val normals = FloatArray(nrmOut.size) { nrmOut[it] }
         val uvs = FloatArray(uvOut.size) { uvOut[it] }
-        if (normals.isEmpty()) {
-            // 没有法线就用全 0，渲染时会被 normalize 成 NaN，这里给个朝向兜底
-            val fixed = FloatArray(positions.size) { if (it % 3 == 2) 1f else 0f }
-            return MeshData(positions, fixed, uvs, bestTexture, min, max)
+        return MeshData(positions, normals, uvs, bestTexture, min, max, sourceName)
+    }
+
+    // ---------------- buffers / bufferViews ----------------
+
+    private fun readBuffers(root: JSONObject, glbBin: ByteArray?, baseDir: File?): List<ByteArray> {
+        val out = ArrayList<ByteArray>()
+        val buffers = root.optJSONArray("buffers")
+        if (buffers == null) {
+            if (glbBin != null) out.add(glbBin)
+            return out
         }
-        return MeshData(positions, normals, uvs, bestTexture, min, max)
+        for (i in 0 until buffers.length()) {
+            val buf = buffers.optJSONObject(i) ?: continue
+            val uri = buf.optString("uri", "")
+            when {
+                uri.isEmpty() -> out.add(glbBin ?: ByteArray(0))
+                uri.startsWith("data:") -> {
+                    val comma = uri.indexOf(',')
+                    require(comma > 0) { "buffer 的 data URI 格式不对" }
+                    out.add(decodeBase64(uri.substring(comma + 1)))
+                }
+
+                baseDir != null -> {
+                    val f = File(baseDir, uri)
+                    require(f.isFile) {
+                        "缺少模型的外部文件：$uri\n请把 .gltf 连同 .bin 和贴图一起打成 zip 再导入。"
+                    }
+                    out.add(f.readBytes())
+                }
+
+                else -> throw IllegalStateException("缺少模型的外部文件：$uri")
+            }
+        }
+        return out
+    }
+
+    private fun viewBytes(bufferViews: JSONArray, buffers: List<ByteArray>, viewIndex: Int): ByteArray? {
+        val view = bufferViews.optJSONObject(viewIndex) ?: return null
+        val bufferIndex = view.optInt("buffer", 0)
+        val data = buffers.getOrNull(bufferIndex) ?: return null
+        val off = view.optInt("byteOffset", 0)
+        val len = view.optInt("byteLength", 0)
+        if (len <= 0 || off < 0 || off + len > data.size) return null
+        return data.copyOfRange(off, off + len)
     }
 
     // ---------------- 材质贴图 ----------------
@@ -252,15 +272,15 @@ object GlbLoader {
     private fun materialBitmap(
         root: JSONObject,
         bufferViews: JSONArray,
-        bin: ByteBuffer?,
+        buffers: List<ByteArray>,
+        baseDir: File?,
         materialIndex: Int,
         cache: HashMap<Int, Bitmap?>
     ): Bitmap? {
         val materials = root.optJSONArray("materials") ?: return null
         val mat = materials.optJSONObject(materialIndex) ?: return null
         val textureIndex = mat.optJSONObject("pbrMetallicRoughness")
-            ?.optJSONObject("baseColorTexture")?.optInt("index", -1)
-            ?.takeIf { it >= 0 }
+            ?.optJSONObject("baseColorTexture")?.optInt("index", -1)?.takeIf { it >= 0 }
             ?: mat.optJSONObject("emissiveTexture")?.optInt("index", -1)?.takeIf { it >= 0 }
             ?: return null
 
@@ -269,26 +289,29 @@ object GlbLoader {
         if (imageIndex < 0) return null
         if (cache.containsKey(imageIndex)) return cache[imageIndex]
 
-        val images = root.optJSONArray("images")
-        val image = images?.optJSONObject(imageIndex)
+        val image = root.optJSONArray("images")?.optJSONObject(imageIndex)
         var bmp: Bitmap? = null
-        val viewIndex = image?.optInt("bufferView", -1) ?: -1
-        if (viewIndex >= 0 && bin != null) {
-            val view = bufferViews.optJSONObject(viewIndex)
-            if (view != null) {
-                val off = view.optInt("byteOffset", 0)
-                val len = view.optInt("byteLength", 0)
-                if (len > 0 && off >= 0 && off + len <= bin.capacity()) {
-                    val data = ByteArray(len)
-                    val dup = bin.duplicate().order(ByteOrder.LITTLE_ENDIAN)
-                    dup.position(off)
-                    dup.get(data)
-                    bmp = BitmapFactory.decodeByteArray(data, 0, len)
-                }
+        if (image != null) {
+            val viewIndex = image.optInt("bufferView", -1)
+            val uri = image.optString("uri", "")
+            val bytes: ByteArray? = when {
+                viewIndex >= 0 -> viewBytes(bufferViews, buffers, viewIndex)
+                uri.startsWith("data:") -> uri.substringAfter(',', "").let { decodeBase64(it) }
+                uri.isNotEmpty() && baseDir != null -> File(baseDir, uri).takeIf { it.isFile }?.readBytes()
+                else -> null
+            }
+            if (bytes != null && bytes.isNotEmpty()) {
+                bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
             }
         }
         cache[imageIndex] = bmp
         return bmp
+    }
+
+    private fun decodeBase64(text: String): ByteArray = try {
+        android.util.Base64.decode(text, android.util.Base64.DEFAULT)
+    } catch (t: Throwable) {
+        throw IllegalStateException("模型里的 base64 数据解不开")
     }
 
     // ---------------- accessor ----------------
@@ -296,13 +319,14 @@ object GlbLoader {
     private fun readFloats(
         accessors: JSONArray,
         bufferViews: JSONArray,
-        bin: ByteBuffer?,
+        buffers: List<ByteArray>,
         accessorIndex: Int
     ): FloatArray? {
         val acc = accessors.optJSONObject(accessorIndex) ?: return null
         val viewIndex = acc.optInt("bufferView", -1)
-        if (viewIndex < 0 || bin == null) return null
+        if (viewIndex < 0) return null
         val view = bufferViews.optJSONObject(viewIndex) ?: return null
+        val data = buffers.getOrNull(view.optInt("buffer", 0)) ?: return null
 
         val count = acc.optInt("count", 0)
         val comps = componentsOf(acc.optString("type", "VEC3"))
@@ -313,12 +337,12 @@ object GlbLoader {
         val stride = view.optInt("byteStride", 0).let { if (it > 0) it else compSize * comps }
         val base = viewOffset + accOffset
         val out = FloatArray(count * comps)
-        val buf = bin.duplicate().order(ByteOrder.LITTLE_ENDIAN)
+        val buf = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
         for (i in 0 until count) {
             val start = base + i * stride
             for (c in 0 until comps) {
                 val p = start + c * compSize
-                if (p < 0 || p + compSize > buf.capacity()) continue
+                if (p < 0 || p + compSize > data.size) continue
                 out[i * comps + c] = when (compType) {
                     COMP_FLOAT -> buf.getFloat(p)
                     COMP_USHORT -> (buf.getShort(p).toInt() and 0xFFFF).toFloat()
@@ -336,10 +360,10 @@ object GlbLoader {
     private fun readInts(
         accessors: JSONArray,
         bufferViews: JSONArray,
-        bin: ByteBuffer?,
+        buffers: List<ByteArray>,
         accessorIndex: Int
     ): IntArray? {
-        val floats = readFloats(accessors, bufferViews, bin, accessorIndex) ?: return null
+        val floats = readFloats(accessors, bufferViews, buffers, accessorIndex) ?: return null
         return IntArray(floats.size) { floats[it].toInt() }
     }
 
@@ -370,7 +394,6 @@ object GlbLoader {
         0f, 0f, 0f, 1f
     )
 
-    /** 列主序 4x4（glTF 规范） */
     private fun localMatrix(node: JSONObject): FloatArray {
         node.optJSONArray("matrix")?.let { m ->
             val out = FloatArray(16)
@@ -396,7 +419,6 @@ object GlbLoader {
         val yy = qy * y2; val yz = qy * z2; val zz = qz * z2
         val wx = qw * x2; val wy = qw * y2; val wz = qw * z2
 
-        // 旋转（列主序）后按列乘缩放，再写入平移
         return floatArrayOf(
             (1f - (yy + zz)) * sx, (xy + wz) * sx, (xz - wy) * sx, 0f,
             (xy - wz) * sy, (1f - (xx + zz)) * sy, (yz + wx) * sy, 0f,
@@ -417,7 +439,6 @@ object GlbLoader {
         return out
     }
 
-    /** 法线矩阵 = 世界矩阵左上 3x3 的逆转置（行主序） */
     private fun normalMatrix(m: FloatArray): FloatArray {
         val a = floatArrayOf(
             m[0], m[4], m[8],

@@ -1,6 +1,7 @@
 package com.funnyarchbishop.fumofumo
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.graphics.SurfaceTexture
 import android.opengl.EGL14
@@ -11,15 +12,24 @@ import android.opengl.EGLExt
 import android.opengl.EGLSurface
 import android.opengl.GLES30
 import android.opengl.GLUtils
+import java.io.File
+import kotlin.math.ceil
+import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * 独立 GL 线程：自己建 EGL 上下文，渲染到 TextureView 的 SurfaceTexture 上。
- * 用 TextureView 而不是 GLSurfaceView，是因为 SurfaceView 在悬浮窗里做不出真正的透明背景。
+ *
+ * 关键设计：悬浮窗**只包住模型本身**，并跟着模型移动。
+ * 如果窗口是全屏的，触摸会被它整个吞掉，下面的应用就点不动了 ——
+ * Android 是按窗口边界决定触摸目标的，视图里 return false 并不能把事件让给下层。
  */
 class PetRenderer(
     private val surfaceTexture: SurfaceTexture,
     private val prefs: PetPrefs,
-    private val onMessage: (String) -> Unit
+    private val customTexture: () -> File?,
+    private val onMessage: (String) -> Unit,
+    private val onWindowRect: (left: Int, top: Int, size: Int) -> Unit
 ) : Thread("pet-gl") {
 
     private val lock = Any()
@@ -34,12 +44,25 @@ class PetRenderer(
     @Volatile
     private var viewH = 1
 
-    // 待上传的网格（由 UI 线程塞进来）
+    /** 整块屏幕尺寸（不是窗口尺寸），物理边界和模型缩放都用它 */
+    @Volatile
+    private var screenW = 0
+
+    @Volatile
+    private var screenH = 0
+
+    // 当前窗口矩形（屏幕坐标，y 向下）
+    private var winLeft = 0
+    private var winTop = 0
+    private var winSize = 0
+
+    // 待上传的网格
     private var mesh: MeshData? = null
     private var meshVersion = 0
     private var uploadedVersion = -1
     private var uploadedScale = -1f
     private var uploadedFlip: Boolean? = null
+    private var uploadedTextureStamp = -1L
 
     // EGL
     private var eglDisplay: EGLDisplay = EGL14.EGL_NO_DISPLAY
@@ -77,15 +100,21 @@ class PetRenderer(
         }
     }
 
+    fun setScreenSize(w: Int, h: Int) {
+        if (w <= 0 || h <= 0) return
+        screenW = w
+        screenH = h
+        synchronized(lock) {
+            physics.width = w.toFloat()
+            physics.height = h.toFloat()
+        }
+    }
+
     fun resize(w: Int, h: Int) {
         if (w <= 0 || h <= 0) return
         viewW = w
         viewH = h
         surfaceTexture.setDefaultBufferSize(w, h)
-        synchronized(lock) {
-            physics.width = w.toFloat()
-            physics.height = h.toFloat()
-        }
     }
 
     fun shutdown() {
@@ -115,12 +144,9 @@ class PetRenderer(
         physics.release(throwVx, throwVy, prefs.getFloat("throwMultiplier"), true)
     }
 
-    /** 双指拖动：横向 → 绕 Y 转，纵向 → 绕 X 转 */
     fun spinBy(deltaX: Float, deltaY: Float) = synchronized(lock) {
         physics.rotateBy(deltaY * 0.006f, -deltaX * 0.006f, 0f, 1f)
     }
-
-    fun isDragging(): Boolean = synchronized(lock) { physics.dragging }
 
     // ---------------- GL 线程 ----------------
 
@@ -138,11 +164,13 @@ class PetRenderer(
                 last = now
 
                 synchronized(lock) {
-                    val gravity = prefs.getFloat("gravity")
-                    val restitution = prefs.getFloat("restitution")
-                    val friction = prefs.getFloat("friction")
-                    val airDrag = prefs.getFloat("airDrag")
-                    physics.step(dt, gravity, restitution, friction, airDrag)
+                    physics.step(
+                        dt,
+                        prefs.getFloat("gravity"),
+                        prefs.getFloat("restitution"),
+                        prefs.getFloat("friction"),
+                        prefs.getFloat("airDrag")
+                    )
                 }
 
                 drawFrame()
@@ -256,8 +284,7 @@ class PetRenderer(
         val status = IntArray(1)
         GLES30.glGetProgramiv(program, GLES30.GL_LINK_STATUS, status, 0)
         if (status[0] == 0) {
-            val log = GLES30.glGetProgramInfoLog(program)
-            throw RuntimeException("着色器链接失败: $log")
+            throw RuntimeException("着色器链接失败: ${GLES30.glGetProgramInfoLog(program)}")
         }
         GLES30.glDeleteShader(v)
         GLES30.glDeleteShader(f)
@@ -290,8 +317,7 @@ class PetRenderer(
 
     private fun releaseGl() {
         if (program != 0) GLES30.glDeleteProgram(program)
-        val buffers = intArrayOf(vboPos, vboNrm, vboUv)
-        GLES30.glDeleteBuffers(3, buffers, 0)
+        if (vboPos != 0) GLES30.glDeleteBuffers(3, intArrayOf(vboPos, vboNrm, vboUv), 0)
         if (texId != 0) GLES30.glDeleteTextures(1, intArrayOf(texId), 0)
     }
 
@@ -301,7 +327,15 @@ class PetRenderer(
         val data = synchronized(lock) { mesh } ?: return
         val flip = prefs.flipTexture
         val scale = computeScale(data)
-        if (uploadedVersion == meshVersion && uploadedScale == scale && uploadedFlip == flip) return
+
+        val custom = customTexture()
+        val stamp = custom?.takeIf { it.isFile }?.lastModified() ?: -1L
+
+        if (uploadedVersion == meshVersion && uploadedScale == scale &&
+            uploadedFlip == flip && uploadedTextureStamp == stamp
+        ) {
+            return
+        }
 
         val centerX = (data.min[0] + data.max[0]) / 2f
         val centerY = (data.min[1] + data.max[1]) / 2f
@@ -340,21 +374,22 @@ class PetRenderer(
 
         vertexCount = data.vertexCount
 
-        // 贴图
+        // 贴图：用户自己导入的优先
         if (texId != 0) {
             GLES30.glDeleteTextures(1, intArrayOf(texId), 0)
             texId = 0
         }
         hasTex = false
-        val bmp = data.texture
-        if (bmp != null) {
-            texId = uploadTexture(bmp, flip)
+        val bitmap = decodeCustomTexture(custom) ?: data.texture
+        if (bitmap != null) {
+            texId = uploadTexture(bitmap, flip)
             hasTex = texId != 0
         }
 
         uploadedVersion = meshVersion
         uploadedScale = scale
         uploadedFlip = flip
+        uploadedTextureStamp = stamp
 
         val halfX = (data.max[0] - data.min[0]) / 2f * scale
         val halfY = (data.max[1] - data.min[1]) / 2f * scale
@@ -366,12 +401,19 @@ class PetRenderer(
             physics.halfZ = halfZ.coerceAtLeast(1f)
             physics.inertia = (((halfX * 2f) * (halfX * 2f) + (halfY * 2f) * (halfY * 2f)) / 12f)
                 .coerceAtLeast(1500f)
-            physics.width = viewW.toFloat()
-            physics.height = viewH.toFloat()
-            if (firstTime) physics.reset(viewW / 2f, viewH / 2f)
+            physics.width = screenW.toFloat()
+            physics.height = screenH.toFloat()
+            if (firstTime) physics.reset(screenW / 2f, screenH * 0.6f)
         }
+    }
 
-        onMessage("模型已载入：${data.triangleCount} 个三角面")
+    private fun decodeCustomTexture(file: File?): Bitmap? {
+        if (file == null || !file.isFile) return null
+        return try {
+            BitmapFactory.decodeFile(file.absolutePath)
+        } catch (_: Throwable) {
+            null
+        }
     }
 
     private fun computeScale(data: MeshData): Float {
@@ -380,7 +422,8 @@ class PetRenderer(
             data.max[1] - data.min[1],
             data.max[2] - data.min[2]
         )
-        val target = viewH * prefs.getFloat("heightRatio") * prefs.getFloat("modelScale")
+        val screen = if (screenH > 0) screenH else viewH
+        val target = screen * prefs.getFloat("heightRatio") * prefs.getFloat("modelScale")
         return if (ext > 1e-6f) target / ext else 1f
     }
 
@@ -404,6 +447,31 @@ class PetRenderer(
         return ids[0]
     }
 
+    // ---------------- 窗口跟随 ----------------
+
+    /**
+     * 让悬浮窗正好包住模型（边长取模型包围球直径，这样旋转时不用改窗口大小，
+     * 只移动位置即可，避免每帧重建 Surface）。
+     */
+    private fun updateWindowRect() {
+        if (screenW <= 0 || screenH <= 0) return
+        val radius = sqrt(
+            physics.halfX * physics.halfX +
+                physics.halfY * physics.halfY +
+                physics.halfZ * physics.halfZ
+        )
+        val size = (ceil(radius * 2f).toInt() + 24).coerceAtMost(maxOf(screenW, screenH))
+        if (size <= 0) return
+        val left = (physics.cx - size / 2f).roundToInt()
+        val top = ((screenH - physics.cy) - size / 2f).roundToInt()
+        if (size != winSize || left != winLeft || top != winTop) {
+            winSize = size
+            winLeft = left
+            winTop = top
+            onWindowRect(left, top, size)
+        }
+    }
+
     // ---------------- 绘制 ----------------
 
     private fun drawFrame() {
@@ -413,7 +481,8 @@ class PetRenderer(
         if (program == 0) return
 
         uploadIfNeeded()
-        if (vertexCount == 0) return
+        updateWindowRect()
+        if (vertexCount == 0 || winSize <= 0) return
 
         GLES30.glEnable(GLES30.GL_DEPTH_TEST)
         GLES30.glEnable(GLES30.GL_BLEND)
@@ -422,19 +491,18 @@ class PetRenderer(
 
         synchronized(lock) {
             val r = physics.rot
-            // 模型矩阵（行主序）：左上 3x3 = 旋转，最后一列 = 屏幕位置
             modelMatrix[0] = r[0]; modelMatrix[1] = r[1]; modelMatrix[2] = r[2]; modelMatrix[3] = physics.cx
             modelMatrix[4] = r[3]; modelMatrix[5] = r[4]; modelMatrix[6] = r[5]; modelMatrix[7] = physics.cy
             modelMatrix[8] = r[6]; modelMatrix[9] = r[7]; modelMatrix[10] = r[8]; modelMatrix[11] = 0f
             modelMatrix[12] = 0f; modelMatrix[13] = 0f; modelMatrix[14] = 0f; modelMatrix[15] = 1f
         }
 
-        // 正交投影：像素坐标 → NDC（y 向上，和桌面版一致）
-        val w = viewW.toFloat()
-        val h = viewH.toFloat()
+        // 正交投影：屏幕像素坐标 → 窗口内的 NDC（y 向上，和桌面版一致）
+        val size = winSize.toFloat()
+        val bottomUp = (screenH - (winTop + winSize)).toFloat()
         val proj = floatArrayOf(
-            2f / w, 0f, 0f, -1f,
-            0f, 2f / h, 0f, -1f,
+            2f / size, 0f, 0f, -(1f + 2f * winLeft / size),
+            0f, 2f / size, 0f, -(1f + 2f * bottomUp / size),
             0f, 0f, 0.001f, 0f,
             0f, 0f, 0f, 1f
         )
@@ -472,7 +540,6 @@ class PetRenderer(
         GLES30.glVertexAttribPointer(location, size, GLES30.GL_FLOAT, false, 0, 0)
     }
 
-    /** 行主序 4x4 相乘：out = a * b */
     private fun multiply4(a: FloatArray, b: FloatArray, out: FloatArray) {
         for (row in 0 until 4) {
             for (col in 0 until 4) {
@@ -483,7 +550,6 @@ class PetRenderer(
         }
     }
 
-    /** 行主序 → 列主序（OpenGL 要列主序） */
     private fun transpose4(src: FloatArray): FloatArray {
         val out = FloatArray(16)
         for (row in 0 until 4) {

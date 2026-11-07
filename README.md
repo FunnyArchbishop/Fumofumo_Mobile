@@ -2,14 +2,16 @@
 
 把 3D 桌宠搬到 Android：**悬浮在其他应用之上**的 fumo，能拖、能甩、能转、会掉到屏幕底部弹起来。
 
-这是桌面版 [WINobj](../WINobj) 的 Android 重写版。桌面版是 Python + Qt + moderngl，手机上这些都用不了，所以外壳整体重写成了 Kotlin + OpenGL ES 3.0；物理和着色器是从桌面版移植过来的，手感一致。
+这是桌面版 [WINobj](../WINobj) 的 Android 重写版。桌面版是 Python + Qt + moderngl，手机上这些都用不了，所以外壳整体重写成 Kotlin + OpenGL ES 3.0；物理和着色器从桌面版移植，手感一致。
 
 ## 效果
 
 - 桌宠浮在桌面 / 其他 App 之上，透明背景
 - 拖起来可以甩出去，撞到屏幕边缘会弹回来，最后落到屏幕底部
 - 双指拖动可以自由转动模型（3D 自转，不只是平面旋转）
-- 模型从相册/文件里挑，`.glb` 单文件即可（贴图内嵌）
+- **桌宠以外的地方照常可以点** —— 悬浮窗只包住 fumo 本身，不会挡住你操作手机
+- 长按桌宠出菜单：参数设置 / 停止
+- 模型支持多种格式，贴图还可以自己换一张
 
 ## 环境要求
 
@@ -18,6 +20,21 @@
 | Android | 8.0（API 26）及以上 |
 | GPU | 支持 OpenGL ES 3.0 |
 | 构建 | JDK 17 + Android SDK 35（Android Studio 打开即可） |
+
+## 支持的模型格式
+
+| 格式 | 说明 | 备注 |
+| --- | --- | --- |
+| `.glb` | glTF 二进制单文件，贴图内嵌 | **最推荐**，最省事 |
+| `.gltf` | JSON + 外部 `.bin` 与贴图 | 需要连同资源一起打成 `.zip` 再导入 |
+| `.obj` | Wavefront OBJ（+ `.mtl` 与贴图） | 同上，打成 `.zip` 才能带上贴图 |
+| `.usdz` | Pixar USDZ（Apple AR 常用格式） | 内含的 `.usdc` 由本程序自己解析 |
+| `.usdc` | USD Crate 二进制 | 单独导入或放在 zip 里都行 |
+| `.zip` | 压缩包 | 自动解包并挑出里面的模型 |
+
+**扩展名不可信。** 导入时是按**文件内容**判断格式的，下载工具把 `model.glb` 改名成 `.circ`、`.bin` 或者没有扩展名，照样能打开。
+
+**贴图可以自己换。** 首页「自定义贴图」挑一张图片覆盖模型自带的贴图；「清除贴图」恢复原样。
 
 ## 构建
 
@@ -36,69 +53,74 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 
 ### 单元测试
 
-解析器有一个拿真实模型对拍的测试（默认跳过，因为模型不进仓库）：
+三个读取器都有测试，其中两个拿**真实模型**和桌面版的解析结果对拍（模型不进仓库，默认跳过）：
 
 ```bash
-./gradlew testDebugUnitTest -DtestModel=/path/to/your/model.glb
+./gradlew testDebugUnitTest \
+  -DtestGlb=/path/to/model.glb \
+  -DtestUsdc=/path/to/scene.usdc
 ```
 
-它会断言三角面数、包围盒与桌面版 WINobj（trimesh）对同一模型的解析结果一致。
+断言内容：三角面数、包围盒、UV 数组长度、以及数据里没有 NaN。
 
 ## 使用
 
-1. 打开 App，点「选择模型（.glb）」，挑一个 glb 文件（Sketchfab 下载的 GLB 就行）
-2. 点状态栏里那行「悬浮窗权限：未授权」，去系统设置里打开「显示在其他应用上层」
+1. 打开 App，点「选择模型」，挑一个模型文件
+2. 点状态栏里那行「悬浮窗权限：未授权」，去系统设置打开「显示在其他应用上层」
 3. 回到 App 点「启动桌宠」——它会掉到屏幕底部
+4. 长按桌宠可以打开菜单（参数设置 / 停止）
 
 | 手势 | 作用 |
 |---|---|
 | 单指拖动 | 拎起来移动，松手按速度甩出去 |
 | 双指拖动 | 横向转 Y 轴、纵向转 X 轴 |
-| 长按 | 打开参数设置 |
-| 点模型以外的地方 | 触摸透传给下面的应用（不会挡住你操作） |
+| 长按 | 打开菜单（设置 / 停止 / 取消） |
 
-通知栏里有「设置」和「停止」两个快捷入口。
+通知栏里也有「设置」和「停止」两个快捷入口。
 
 ## 参数
 
 设置界面里可调：重力、弹性、摩擦、空气阻力、甩出力度、模型大小、占屏高度、环境光、伽马、贴图翻转。
 
-参数直接写进 `SharedPreferences`，渲染线程每帧读取，所以是**实时生效**的。
+参数写进 `SharedPreferences`，渲染线程每帧读取，所以是**实时生效**的。
 
-「贴图翻转」默认开启（和桌面版一致）。如果模型贴图上下颠倒了，关掉它。
+「贴图上下翻转」默认关闭（glTF 的 UV 约定就是这样）。如果某只模型的贴图倒了，打开它。
 
-## 和桌面版的差别
+## 实现要点
 
-| | 桌面版 WINobj | 这里 |
-|---|---|---|
-| 语言/框架 | Python + PySide6 + moderngl | Kotlin + OpenGL ES 3.0 |
-| 渲染窗口 | 全屏透明 Qt 窗口 | TextureView + 自建 EGL 线程（SurfaceView 在悬浮窗里做不出真透明） |
-| 碰撞 | 每帧变换全部顶点求包围盒 | 只变换包围盒 8 个角点（手机上 29 万顶点逐帧变换扛不住） |
-| 支持格式 | obj / glb / gltf / usdz / zip | 只支持单文件 `.glb` |
-| 旋转控制 | 键盘 W/A/S/D/Q/E | 双指手势 |
+| 问题 | 做法 |
+| --- | --- |
+| 悬浮窗挡住其他应用 | 窗口**只包住模型**并跟着它移动。全屏窗口会把所有触摸吃掉——Android 按窗口边界决定触摸归属，视图里 `return false` 并不能让给下层 |
+| 悬浮窗透明 | 用 TextureView + 自建 EGL 线程（SurfaceView 在悬浮窗里做不出真透明） |
+| 手机性能 | 碰撞用包围盒 8 个角点，而不是每帧变换全部顶点 |
+| USDZ | 自己写了 USDC（USD Crate）二进制解析器，格式参考 Pixar OpenUSD 与 MIT 许可的 [@cinevva/usdjs](https://github.com/cinevva-engine/usdjs) |
 
 ## 代码结构
 
 ```
 app/src/main/java/com/funnyarchbishop/fumofumo/
-├── MainActivity.kt      权限引导、选模型、启动/停止
+├── MainActivity.kt      权限引导、选模型、选贴图、启动/停止
 ├── SettingsActivity.kt  参数滑条
-├── PetService.kt        前台服务 + 悬浮窗（桌宠能飘起来的关键）
-├── PetView.kt           TextureView + 手势（拖拽 / 双指旋转 / 长按）
-├── PetRenderer.kt       自建 EGL 线程 + 着色器 + 渲染循环
+├── PetService.kt        前台服务 + 跟随模型的小悬浮窗 + 长按菜单
+├── PetView.kt           TextureView + 手势
+├── PetRenderer.kt       自建 EGL 线程 + 着色器 + 窗口跟随
 ├── Physics.kt           2D 刚体 + 3D 自转（移植自 WINobj.py）
-├── GlbLoader.kt         极简 GLB 解析（节点变换 / UV / baseColor 与 emissive 贴图）
-├── ModelRepository.kt   模型文件落地到 filesDir
+├── ModelImporter.kt     按文件头分派到对应读取器
+├── GltfLoader.kt        glb / gltf
+├── ObjLoader.kt         obj（+ mtl 贴图）
+├── UsdcLoader.kt        usdc（USD Crate 二进制）
+├── ModelRepository.kt   模型与自定义贴图落地
 └── PetPrefs.kt          参数持久化
 ```
 
 ## 已知限制
 
-- **只支持单文件 `.glb`**。需要外部 `.bin` 的 `.gltf`、Draco 压缩的 glb、usdz 都不支持（桌面版可以用它们，也可以拿桌面版把模型另存成 glb）。
+- **不支持 Draco 压缩的 glTF**，会明确报错。请下载未压缩版本。
 - 一个模型只用一张贴图：优先 `baseColorTexture`，没有就用 `emissiveTexture`（Sketchfab 上的 Shadeless 扫描件会把颜色放在自发光通道）。
-- 多材质的模型会统一用面数最多那块的贴图。
+- 多材质模型统一用面数最多那块的贴图。
 - 动画、骨骼、蒙皮不参与（桌宠只看静态网格）。
-- **iOS 做不了**：系统不允许跨 App 悬浮窗，桌宠这个概念在 iOS 上不存在。
+- USD 只支持单层场景，不支持外部引用其它 `.usd` 层的资产；`.usda` 文本格式暂不支持（请用 `.usdz` 或 `.glb`）。
+- **iOS 做不了**：系统不允许跨 App 悬浮窗。
 
 ## 许可
 

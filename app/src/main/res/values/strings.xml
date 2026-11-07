@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Fumofumo</string>
+    <string name="settings_title">参数设置</string>
+
+    <string name="subtitle">把 fumo 放到桌面上飘着</string>
+
+    <string name="model_none">还没有选择模型</string>
+    <string name="model_current">当前模型：%1$s（%2$s）</string>
+
+    <string name="btn_pick_model">选择模型（.glb）</string>
+    <string name="btn_start">启动桌宠</string>
+    <string name="btn_stop">停止桌宠</string>
+    <string name="btn_settings">参数设置</string>
+
+    <string name="overlay_ok">悬浮窗权限：已授权</string>
+    <string name="overlay_missing">悬浮窗权限：未授权（点这里去开启）</string>
+    <string name="notif_missing">通知权限：未授权（桌宠仍可用，但通知栏里看不到它）</string>
+
+    <string name="help_title">怎么玩</string>
+    <string name="help_body">· 单指拖动：拎起来甩\n· 双指横向 / 纵向拖动：转动模型\n· 长按：打开设置\n· 从屏幕边缘撞出去会被弹回来</string>
+
+    <string name="pet_running">桌宠运行中</string>
+    <string name="pet_stopped">桌宠已停止</string>
+    <string name="notif_channel_name">桌宠常驻</string>
+    <string name="notif_channel_desc">保持桌宠在其他应用上方显示</string>
+    <string name="notif_title">Fumofumo 正在桌面上</string>
+    <string name="notif_text">点开可以换模型或调整参数</string>
+    <string name="notif_action_settings">设置</string>
+    <string name="notif_action_stop">停止</string>
+
+    <string name="importing">正在导入模型…</string>
+    <string name="import_failed">导入失败：%1$s</string>
+    <string name="load_failed">模型加载失败：%1$s</string>
+    <string name="model_loaded">模型已载入：%1$d 个三角面</string>
+
+    <string name="need_model_first">请先选择一个 .glb 模型</string>
+    <string name="need_overlay_first">请先授予悬浮窗权限</string>
+
+    <string name="p_gravity">重力</string>
+    <string name="p_restitution">弹性</string>
+    <string name="p_friction">摩擦</string>
+    <string name="p_air_drag">空气阻力</string>
+    <string name="p_throw">甩出力度</string>
+    <string name="p_scale">模型大小</string>
+    <string name="p_height">占屏高度</string>
+    <string name="p_ambient">环境光</string>
+    <string name="p_gamma">伽马</string>
+    <string name="p_flip">翻转贴图（贴图上下颠倒时打开）</string>
+    <string name="btn_reset_default">恢复默认</string>
+    <string name="btn_done">完成</string>
+</resources>

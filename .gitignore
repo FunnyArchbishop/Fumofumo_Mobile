@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 模型与素材不进仓库（体积大，且多为第三方授权资产）
+*.glb
+*.gltf
+*.bin
+*.usdz
+*.usdc
+*.usda
+*.obj
+*.fbx
+*.circ
+.kotlin/

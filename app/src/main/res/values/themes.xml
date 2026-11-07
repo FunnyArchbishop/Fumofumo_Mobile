@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Fumofumo" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">#00BFFF</item>
+        <item name="colorPrimaryDark">#0090C0</item>
+        <item name="colorAccent">#00BFFF</item>
+        <item name="android:windowBackground">#12141A</item>
+        <item name="android:statusBarColor">#12141A</item>
+    </style>
+</resources>

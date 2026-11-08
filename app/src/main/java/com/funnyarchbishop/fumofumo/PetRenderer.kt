@@ -195,7 +195,8 @@ class PetRenderer(
                             prefs.getFloat("restitution"),
                             prefs.getFloat("friction"),
                             prefs.getFloat("airDrag"),
-                            prefs.getFloat("spinDamping")
+                            prefs.getFloat("spinDamping"),
+                            prefs.getFloat("swingDamping")
                         )
                     }
                 }

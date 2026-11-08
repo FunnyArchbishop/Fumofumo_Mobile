@@ -1,6 +1,7 @@
 package com.funnyarchbishop.fumofumo
 
 import kotlin.math.abs
+import kotlin.math.acos
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.sin
@@ -44,6 +45,10 @@ class PetPhysics {
     private val cornerX = FloatArray(8)
     private val cornerY = FloatArray(8)
 
+    /** 拖拽时的支点（手指所在的世界坐标） */
+    private var pivotX = 0f
+    private var pivotY = 0f
+
     fun reset(x: Float, y: Float) {
         cx = x
         cy = y
@@ -65,21 +70,33 @@ class PetPhysics {
         localGrab[0] = rot[0] * dx + rot[3] * dy
         localGrab[1] = rot[1] * dx + rot[4] * dy
         localGrab[2] = rot[2] * dx + rot[5] * dy
+        pivotX = worldX
+        pivotY = worldY
         dragging = true
+        vx = 0f
+        vy = 0f
+        wx = 0f
+        wy = 0f
+        wz = 0f
+    }
+
+    fun dragTo(worldX: Float, worldY: Float) {
+        pivotX = worldX
+        pivotY = worldY
+        holdPivotFixed()
         vx = 0f
         vy = 0f
     }
 
-    fun dragTo(worldX: Float, worldY: Float) {
+    /** 把中心摆回"支点仍然贴着手指"的位置 */
+    private fun holdPivotFixed() {
         val lx = localGrab[0]
         val ly = localGrab[1]
         val lz = localGrab[2]
         val rx = rot[0] * lx + rot[1] * ly + rot[2] * lz
         val ry = rot[3] * lx + rot[4] * ly + rot[5] * lz
-        cx = worldX - rx
-        cy = worldY - ry
-        vx = 0f
-        vy = 0f
+        cx = pivotX - rx
+        cy = pivotY - ry
     }
 
     fun release(throwVx: Float, throwVy: Float, throwMultiplier: Float, throwSpin: Float) {
@@ -95,6 +112,36 @@ class PetPhysics {
     fun rotateBy(dWx: Float, dWy: Float, dWz: Float, dt: Float) {
         if (abs(dWx) < 1e-6f && abs(dWy) < 1e-6f && abs(dWz) < 1e-6f) return
         rot = mul3(rotationMatrix(dWx, dWy, dWz, dt), rot)
+        if (dragging) holdPivotFixed()
+    }
+
+    /**
+     * 拎在手上时的杠杆：按住的那个点是支点，重力作用在重心上。
+     * τ = r × (0, -g, 0)，其中 r = 重心 - 支点；于是模型会绕手指垂下来。
+     * 支点被手指固定住，所以每步之后要把中心重新摆回"支点不动"的位置。
+     */
+    private fun dragPendulum(dt: Float, gravity: Float, damping: Float) {
+        val rx = cx - pivotX
+        val ry = cy - pivotY
+
+        // 绕支点的转动惯量：平行轴定理
+        val grabLen2 = localGrab[0] * localGrab[0] + localGrab[1] * localGrab[1] +
+            localGrab[2] * localGrab[2]
+        val invI = 1f / (inertia + grabLen2)
+
+        // τ = r × (0,-g,0) = (0, 0, -g*rx)（屏幕平面内）
+        wz += (-gravity * rx) * invI * dt
+
+        val decay = exp(-(damping.coerceAtLeast(0f)) * dt).toFloat()
+        wx *= decay
+        wy *= decay
+        wz *= decay
+        wz = wz.coerceIn(-MAX_SPIN, MAX_SPIN)
+
+        if (wx != 0f || wy != 0f || wz != 0f) {
+            rot = mul3(rotationMatrix(wx, wy, wz, dt), rot)
+        }
+        holdPivotFixed()
     }
 
     // ---------------- 每帧推进 ----------------
@@ -105,9 +152,14 @@ class PetPhysics {
         restitution: Float,
         friction: Float,
         airDrag: Float,
-        spinDamping: Float
+        spinDamping: Float,
+        swingDamping: Float = 0f
     ) {
-        if (dragging) return
+        if (dragging) {
+            // 拎在手上：按住的点当支点，剩下交给重力
+            dragPendulum(dt, gravity, swingDamping)
+            return
+        }
 
         vy -= gravity * dt
         vx *= airDrag

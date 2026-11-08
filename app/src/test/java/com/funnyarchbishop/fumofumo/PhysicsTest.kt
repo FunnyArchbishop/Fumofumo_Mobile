@@ -1,4 +1,4 @@
-package com.funnyarchbishop.fumofumo
+﻿package com.funnyarchbishop.fumofumo
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -104,5 +104,47 @@ class PhysicsTest {
         pet.dragTo(800f, 750f)
         assertEquals(740f, pet.cx, 1e-3f)
         assertEquals(700f, pet.cy, 1e-3f)
+    }
+    // ---------- 拎在手上：支点 + 重力（杠杆） ----------
+
+    @Test
+    fun draggingSwingsTheBodyBelowTheFinger() {
+        val pet = newPet()          // 中心 (540,900)
+        pet.grab(600f, 950f)        // 抓在右上角，重心在支点左上方
+        pet.dragTo(600f, 950f)
+        val before = pet.rot.copyOf()
+
+        val dt = 1f / 60f
+        repeat(240) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.985f, 3.5f, 2f) }
+
+        // 重心应垂到支点正下方
+        assertTrue("重心应停在支点正下方附近，实际 dx=${pet.cx - 600f}", abs(pet.cx - 600f) < 8f)
+        assertTrue("重心应在支点下方，实际 cy=${pet.cy}", pet.cy < 950f)
+        assertTrue("应该绕手指转过", !before.contentEquals(pet.rot))
+    }
+
+    @Test
+    fun grabbingTheCenterDoesNotSwing() {
+        val pet = newPet()
+        pet.grab(540f, 900f)        // 正中心，力臂为 0
+        pet.dragTo(540f, 900f)
+        val dt = 1f / 60f
+        repeat(120) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.985f, 3.5f, 2f) }
+        assertEquals("抓在重心上不该产生旋转", 1f, pet.rot[0], 1e-3f)
+        assertEquals("位置也不该漂", 540f, pet.cx, 1e-3f)
+    }
+
+    @Test
+    fun swingSettlesWithDamping() {
+        val pet = newPet()
+        pet.grab(620f, 940f)
+        pet.dragTo(620f, 940f)
+        val dt = 1f / 60f
+        // 摆 0.6 秒后记录一次偏移，再摆 2 秒后应该更小
+        repeat(36) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.985f, 3.5f, 2f) }
+        val early = abs(pet.cx - 620f)
+        repeat(120) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.985f, 3.5f, 2f) }
+        val late = abs(pet.cx - 620f)
+        assertTrue("摆动应逐渐收敛（early=$early late=$late）", late <= early + 1f)
     }
 }

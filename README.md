@@ -165,6 +165,8 @@ app/src/main/res/mipmap-xxhdpi/ic_launcher.png   144×144
 app/src/main/res/mipmap-xxxhdpi/ic_launcher.png  192×192
 ```
 
+**Android 8+ 使用自适应图标**：`mipmap-anydpi-v26/ic_launcher.xml` 组合前景层（`ic_launcher_foreground.png`，108dp 画布上画面占 70%，避开系统圆形/方形遮罩）和纯色背景（`#1D1D1D`，取自图标主色）。老系统回退到上面的传统 PNG。
+
 通知栏小图标仍然是 `drawable/ic_pet.xml`（单色矢量）—— Android 会把通知小图标渲染成白色剪影，用彩色图会变成一团白块。
 
 ## 相关仓库

@@ -152,3 +152,12 @@ app/src/main/java/com/funnyarchbishop/fumofumo/
 ## 许可
 
 MIT。模型素材请自行注意原作者的授权（Sketchfab 上的模型多为 CC-BY，记得署名）。
+
+## 相关仓库
+
+| 仓库 | 说明 |
+| --- | --- |
+| **[Fumofumo_Mobile](https://github.com/FunnyArchbishop/Fumofumo_Mobile)** | ← 你在这里：Android 悬浮桌宠（Kotlin + OpenGL ES 3.0） |
+| [Fumofumo_Windows](https://github.com/FunnyArchbishop/Fumofumo_Windows) | Windows 桌面版（Python + Qt + moderngl），本项目的起点，源自 [CaxyLZ/WINobj](https://github.com/CaxyLZ/WINobj) |
+| [Fumofumo_Models](https://github.com/FunnyArchbishop/Fumofumo_Models) | 20 个 fumo 3D 扫描模型（CC BY 4.0，含完整署名），手机端可直接导入 |
+

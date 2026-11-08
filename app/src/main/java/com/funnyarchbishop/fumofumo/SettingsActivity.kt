@@ -1,12 +1,14 @@
 package com.funnyarchbishop.fumofumo
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import java.util.Locale
@@ -22,6 +24,8 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
 
+        buildPresetRow()
+
         val container = findViewById<LinearLayout>(R.id.paramContainer)
         Params.LIST.forEach { spec -> container.addView(buildRow(spec)) }
         container.addView(buildFlipSwitch())
@@ -31,6 +35,44 @@ class SettingsActivity : AppCompatActivity() {
             recreate()
         }
         findViewById<Button>(R.id.btnDone).setOnClickListener { finish() }
+    }
+
+    /** 一排预设按钮：点一下把整套手感参数换掉 */
+    private fun buildPresetRow() {
+        val row = findViewById<LinearLayout>(R.id.presetRow)
+        val active = PetPresets.ALL.firstOrNull { prefs.matchesPreset(it) }
+
+        PetPresets.ALL.forEach { preset ->
+            val isActive = preset === active
+            val button = Button(this).apply {
+                text = getString(preset.nameRes)
+                textSize = 13f
+                isAllCaps = false
+                minWidth = 0
+                minimumWidth = 0
+                setPadding(dp(14), dp(6), dp(14), dp(6))
+                setTextColor(if (isActive) 0xFF101418.toInt() else 0xFFE8ECF4.toInt())
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(18).toFloat()
+                    setColor(if (isActive) 0xFF00BFFF.toInt() else 0xFF2A3140.toInt())
+                }
+                setOnClickListener {
+                    prefs.applyPreset(preset)
+                    Toast.makeText(
+                        this@SettingsActivity,
+                        getString(R.string.preset_applied, getString(preset.nameRes)),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    recreate()
+                }
+            }
+            val params = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            params.marginEnd = dp(8)
+            row.addView(button, params)
+        }
     }
 
     private fun buildRow(spec: ParamSpec): View {

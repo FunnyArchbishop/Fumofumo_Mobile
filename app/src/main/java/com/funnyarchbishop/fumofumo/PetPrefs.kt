@@ -65,6 +65,17 @@ class PetPrefs(context: Context) {
         e.apply()
     }
 
+    /** 应用一套预设（只写预设里列出的参数） */
+    fun applyPreset(preset: PetPreset) {
+        val e = sp.edit()
+        preset.values.forEach { (key, value) -> e.putFloat(key, value) }
+        e.apply()
+    }
+
+    /** 判断当前参数是否正好等于某套预设 */
+    fun matchesPreset(preset: PetPreset): Boolean =
+        preset.values.all { (key, value) -> kotlin.math.abs(getFloat(key) - value) < 1e-6f }
+
     companion object {
         const val KEY_FLIP = "flipTexture"
     }

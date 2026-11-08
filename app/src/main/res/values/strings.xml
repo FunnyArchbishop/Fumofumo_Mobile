@@ -48,6 +48,14 @@
     <string name="need_model_first">请先选择一个模型</string>
     <string name="need_overlay_first">请先授予悬浮窗权限</string>
 
+    <string name="preset_title">参数预设</string>
+    <string name="preset_plush">玩偶</string>
+    <string name="preset_balloon">气球</string>
+    <string name="preset_bouncy">弹力球</string>
+    <string name="preset_iron">铁块</string>
+    <string name="preset_zerog">失重</string>
+    <string name="preset_applied">已套用预设：%1$s</string>
+
     <string name="p_gravity">重力</string>
     <string name="p_restitution">弹性</string>
     <string name="p_friction">摩擦</string>

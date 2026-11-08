@@ -1,4 +1,4 @@
-package com.funnyarchbishop.fumofumo
+﻿package com.funnyarchbishop.fumofumo
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -100,5 +100,30 @@ class LoaderTest {
         } finally {
             tmp.delete()
         }
+    }
+    /** 批量验证：把一个目录里所有 glb 都读一遍（用来检查下载回来的模型能不能被手机端吃下） */
+    @Test
+    fun parsesEveryGlbInDirectory() {
+        val dirPath = System.getProperty("testGlbDir").orEmpty()
+        assumeTrue("没有提供 -DtestGlbDir，跳过", dirPath.isNotEmpty())
+        val dir = File(dirPath)
+        assumeTrue("目录不存在：$dirPath", dir.isDirectory)
+        val files = dir.listFiles { f -> f.isFile && f.extension.lowercase() == "glb" }
+            ?.sortedBy { it.name } ?: emptyList()
+        assertTrue("目录里没有 glb 文件", files.isNotEmpty())
+
+        val report = StringBuilder()
+        var totalTris = 0
+        files.forEach { file ->
+            val data = GltfLoader.loadGlb(file)
+            assertTrue("${file.name} 没有三角面", data.triangleCount > 0)
+            assertTrue("${file.name} 顶点里出现 NaN/Inf", data.positions.all { it.isFinite() })
+            assertTrue("${file.name} 法线里出现 NaN/Inf", data.normals.all { it.isFinite() })
+            assertEquals("${file.name} UV 长度不对", data.vertexCount * 2, data.uvs.size)
+            totalTris += data.triangleCount
+            report.appendLine("  ${file.name}: ${data.triangleCount} tris")
+        }
+        println("===== 批量读取 ${files.size} 个 glb，共 $totalTris 个三角面 =====")
+        println(report.toString())
     }
 }

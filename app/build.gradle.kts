@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
@@ -35,6 +35,10 @@ android {
     }
 
     testOptions {
+        unitTests.all {
+            it.testLogging { showStandardStreams = true }
+        }
+
         unitTests {
             isReturnDefaultValues = true
         }
@@ -44,7 +48,7 @@ android {
 // 单元测试可以把真实模型路径传进去，例如：
 //   gradle testDebugUnitTest -DtestGlb=D:/m/model.glb -DtestUsdc=D:/m/scene.usdc
 tasks.withType<Test>().configureEach {
-    listOf("testGlb", "testUsdc", "testModel").forEach { key ->
+    listOf("testGlb", "testUsdc", "testModel", "testGlbDir").forEach { key ->
         systemProperty(key, System.getProperty(key) ?: "")
     }
 }

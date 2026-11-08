@@ -70,4 +70,39 @@ class PhysicsTest {
         assertTrue("应该落在屏幕底部，实际 minY=${aabb[1]}", abs(aabb[1]) < 12f)
         assertTrue("落地后速度应归零", abs(pet.vx) < 1f && abs(pet.vy) < 30f)
     }
+
+    // ---------- 拖拽映射的契约 ----------
+    // 视图层传进来的必须是"手指的屏幕绝对坐标"。下面两条保证：
+    // 手指不动 → 宠物不动；手指动多少 → 宠物跟多少。
+
+    @Test
+    fun holdingStillKeepsPetStill() {
+        val pet = newPet()
+        pet.grab(540f, 900f)
+        val startCx = pet.cx
+        val startCy = pet.cy
+        // 模拟按住不动：反复喂同一个坐标（真实设备上手指会有亚像素抖动）
+        repeat(600) {
+            pet.dragTo(540f, 900f)
+            pet.dragTo(540.4f, 900.3f)
+            pet.dragTo(540f, 900f)
+        }
+        assertEquals("按住不动时中心不该漂移", startCx, pet.cx, 1e-3f)
+        assertEquals("按住不动时中心不该漂移", startCy, pet.cy, 1e-3f)
+    }
+
+    @Test
+    fun draggedPointStaysUnderTheFinger() {
+        val pet = newPet()
+        // 抓在偏心的位置：中心 (540,900)，手指在 (600,950) → 抓取偏移 (60,50)
+        pet.grab(600f, 950f)
+        // 手指移到 (700,850)：中心 = 手指 - 抓取偏移
+        pet.dragTo(700f, 850f)
+        assertEquals(640f, pet.cx, 1e-3f)
+        assertEquals(800f, pet.cy, 1e-3f)
+        // 再移动同样的增量 (+100,-100)，位移也应完全一致
+        pet.dragTo(800f, 750f)
+        assertEquals(740f, pet.cx, 1e-3f)
+        assertEquals(700f, pet.cy, 1e-3f)
+    }
 }

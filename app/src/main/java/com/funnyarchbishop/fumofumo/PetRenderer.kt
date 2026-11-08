@@ -39,6 +39,10 @@ class PetRenderer(
     @Volatile
     private var running = true
 
+    /** 菜单打开时暂停物理，宠物就停在原地不会掉下去 */
+    @Volatile
+    private var paused = false
+
     @Volatile
     private var viewW = 1
 
@@ -122,6 +126,19 @@ class PetRenderer(
         running = false
     }
 
+    fun setPaused(value: Boolean) {
+        paused = value
+        if (value) {
+            synchronized(lock) {
+                physics.vx = 0f
+                physics.vy = 0f
+                physics.wx = 0f
+                physics.wy = 0f
+                physics.wz = 0f
+            }
+        }
+    }
+
     // ---------------- 触摸（由 UI 线程调用，坐标已换算成 y 向上） ----------------
 
     fun hitTest(worldX: Float, worldY: Float): Boolean {
@@ -170,15 +187,17 @@ class PetRenderer(
                 val dt = ((now - last) / 1_000_000_000f).coerceIn(0.001f, 0.05f)
                 last = now
 
-                synchronized(lock) {
-                    physics.step(
-                        dt,
-                        prefs.getFloat("gravity"),
-                        prefs.getFloat("restitution"),
-                        prefs.getFloat("friction"),
-                        prefs.getFloat("airDrag"),
-                        prefs.getFloat("spinDamping")
-                    )
+                if (!paused) {
+                    synchronized(lock) {
+                        physics.step(
+                            dt,
+                            prefs.getFloat("gravity"),
+                            prefs.getFloat("restitution"),
+                            prefs.getFloat("friction"),
+                            prefs.getFloat("airDrag"),
+                            prefs.getFloat("spinDamping")
+                        )
+                    }
                 }
 
                 drawFrame()

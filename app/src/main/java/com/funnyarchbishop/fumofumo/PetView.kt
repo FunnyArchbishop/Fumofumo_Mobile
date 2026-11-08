@@ -25,9 +25,7 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
     private var renderer: PetRenderer? = null
     private var mesh: MeshData? = null
 
-    // 窗口在屏幕上的位置（y 向下）
-    private var winLeft = 0
-    private var winTop = 0
+    // 窗口在屏幕上的位置（y 向下）—— 只用来上报给 Service，输入不再依赖它
     private var screenHeight = 0
 
     var onLongPress: (() -> Unit)? = null
@@ -37,10 +35,12 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
 
     private var dragging = false
     private var multiTouch = false
-    private var downX = 0f
-    private var downY = 0f
+    private var downRawX = 0f
+    private var downRawY = 0f
     private var lastMoveX = 0f
     private var lastMoveY = 0f
+    private var appliedX = 0f
+    private var appliedY = 0f
     private var lastMultiX = 0f
     private var lastMultiY = 0f
     private var throwVx = 0f
@@ -86,19 +86,23 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
         }
     }
 
+    /** 菜单打开时暂停物理，宠物停在原地 */
+    fun setPaused(value: Boolean) {
+        renderer?.setPaused(value)
+    }
+
     // ---------------- SurfaceTexture ----------------
 
     override fun onSurfaceTextureAvailable(st: SurfaceTexture, width: Int, height: Int) {
         val metrics = resources.displayMetrics
-        screenHeight = maxOf(metrics.heightPixels, metrics.widthPixels)
+        // 必须和渲染线程用同一个屏幕高度，否则手指坐标换算会差一截
+        screenHeight = metrics.heightPixels
         val r = PetRenderer(
             surfaceTexture = st,
             prefs = prefs,
             customTexture = { ModelRepository.textureFile(context) },
             onMessage = { msg -> post { onMessage?.invoke(msg) } },
             onWindowRect = { left, top, size ->
-                winLeft = left
-                winTop = top
                 post { onWindowRect?.invoke(left, top, size) }
             }
         )
@@ -128,11 +132,18 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
 
     // ---------------- 手势 ----------------
 
-    private fun worldX(eventX: Float): Float = winLeft + eventX
+    /**
+     * 手指的屏幕坐标一律用 rawX / rawY。
+     *
+     * 千万不能用「窗口内坐标 + 窗口位置」还原：悬浮窗是跟着模型每帧移动的，
+     * 缓存的位置和实际位置差一帧，算出来的坐标就会偏移一个窗口位移，
+     * 于是"模型跳 → 窗口跟着跳 → 坐标再偏"，按住不动也会剧烈抖动。
+     */
+    private fun worldX(event: MotionEvent): Float = event.rawX
 
-    private fun worldY(eventY: Float): Float {
+    private fun worldY(event: MotionEvent): Float {
         val screenH = if (screenHeight > 0) screenHeight else height
-        return screenH - (winTop + eventY)
+        return screenH - event.rawY
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -140,18 +151,19 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
         val r = renderer ?: return false
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                // 窗口本来就只包住模型，所以这里一律接管；
-                // 但只有真的按在模型上才开始拖拽（按在边缘留白处则是长按菜单）。
                 multiTouch = false
-                downX = event.x
-                downY = event.y
-                lastMoveX = worldX(event.x)
-                lastMoveY = worldY(event.y)
+                downRawX = event.rawX
+                downRawY = event.rawY
+                lastMoveX = worldX(event)
+                lastMoveY = worldY(event)
+                appliedX = lastMoveX
+                appliedY = lastMoveY
                 throwVx = 0f
                 throwVy = 0f
+                lastMoveTime = SystemClock.uptimeMillis()
                 dragging = r.hitTest(lastMoveX, lastMoveY)
                 if (dragging) r.beginDrag(lastMoveX, lastMoveY)
-                handler.postDelayed(longPressRunnable, 500)
+                handler.postDelayed(longPressRunnable, 700)
                 return true
             }
 
@@ -169,7 +181,7 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
             }
 
             MotionEvent.ACTION_MOVE -> {
-                if (hypot(event.x - downX, event.y - downY) > 24f) {
+                if (hypot(event.rawX - downRawX, event.rawY - downRawY) > 24f) {
                     handler.removeCallbacks(longPressRunnable)
                 }
                 if (!dragging) return true
@@ -182,12 +194,16 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
                     lastMultiY = my
                     r.spinBy(dx, -dy)
                 } else {
-                    val wx = worldX(event.x)
-                    val wy = worldY(event.y)
+                    val wx = worldX(event)
+                    val wy = worldY(event)
+                    // 1px 死区：手抖不会让模型跟着颤
+                    if (hypot(wx - appliedX, wy - appliedY) < 1f) return true
                     throwVx = wx - lastMoveX
                     throwVy = wy - lastMoveY
                     lastMoveX = wx
                     lastMoveY = wy
+                    appliedX = wx
+                    appliedY = wy
                     lastMoveTime = SystemClock.uptimeMillis()
                     r.dragTo(wx, wy)
                 }

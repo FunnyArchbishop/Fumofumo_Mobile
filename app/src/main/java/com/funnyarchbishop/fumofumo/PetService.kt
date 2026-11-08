@@ -180,8 +180,13 @@ class PetService : Service() {
             shutdown()
         }
         dialog.findViewById<Button>(R.id.menuCancel).setOnClickListener { dialog.dismiss() }
-        dialog.setOnDismissListener { menuDialog = null }
+        dialog.setOnDismissListener {
+            menuDialog = null
+            petView?.setPaused(false)
+        }
         menuDialog = dialog
+        // 菜单开着的时候把物理停掉，宠物就挂在原地不会乱动
+        petView?.setPaused(true)
         dialog.show()
     }
 

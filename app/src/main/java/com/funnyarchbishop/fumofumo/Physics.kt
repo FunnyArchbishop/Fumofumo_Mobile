@@ -162,8 +162,13 @@ class PetPhysics {
         }
 
         vy -= gravity * dt
-        vx *= airDrag
-        vy *= airDrag
+
+        // 空气阻力：0 = 完全无阻力；数值越大减速越快（按时间指数衰减，与帧率无关）
+        if (airDrag > 0f) {
+            val drag = exp(-airDrag * dt).toFloat()
+            vx *= drag
+            vy *= drag
+        }
 
         // 角速度按时间衰减（和帧率无关）。转得越快衰减得越快，免得一直打转
         val spinDecay = exp(-(spinDamping.coerceAtLeast(0f)) * dt).toFloat()

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Fumofumo</string>
     <string name="settings_title">参数设置</string>
@@ -59,7 +59,7 @@
     <string name="p_gravity">重力</string>
     <string name="p_restitution">弹性</string>
     <string name="p_friction">摩擦</string>
-    <string name="p_air_drag">空气阻力</string>
+    <string name="p_air_drag">空气阻力（0 = 无阻力）</string>
     <string name="p_throw">甩出力度</string>
     <string name="p_throw_spin">甩出时翻滚</string>
     <string name="p_spin_damping">旋转阻尼</string>

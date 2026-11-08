@@ -17,7 +17,8 @@ object Params {
         ParamSpec("gravity", R.string.p_gravity, 0f, 6000f, 2500f),
         ParamSpec("restitution", R.string.p_restitution, 0f, 1f, 0.3f),
         ParamSpec("friction", R.string.p_friction, 0f, 1f, 0.8f),
-        ParamSpec("airDrag", R.string.p_air_drag, 0.9f, 1f, 0.985f),
+        // 空气阻力：0 = 无阻力；每秒指数衰减系数
+        ParamSpec("airDrag", R.string.p_air_drag, 0f, 8f, 0.9f),
         ParamSpec("throwMultiplier", R.string.p_throw, 0f, 200f, 60f),
         ParamSpec("throwSpin", R.string.p_throw_spin, 0f, 0.01f, 0.0012f),
         ParamSpec("spinDamping", R.string.p_spin_damping, 0.5f, 12f, 3.5f),

@@ -1,4 +1,4 @@
-package com.funnyarchbishop.fumofumo
+﻿package com.funnyarchbishop.fumofumo
 
 import androidx.annotation.StringRes
 
@@ -21,7 +21,7 @@ object PetPresets {
                 "gravity" to 2500f,
                 "restitution" to 0.3f,
                 "friction" to 0.8f,
-                "airDrag" to 0.985f,
+                "airDrag" to 0.91f,
                 "throwMultiplier" to 60f,
                 "throwSpin" to 0.0012f,
                 "spinDamping" to 3.5f,
@@ -35,7 +35,7 @@ object PetPresets {
                 "gravity" to 700f,
                 "restitution" to 0.45f,
                 "friction" to 0.9f,
-                "airDrag" to 0.972f,
+                "airDrag" to 1.70f,
                 "throwMultiplier" to 90f,
                 "throwSpin" to 0.0006f,
                 "spinDamping" to 1.2f,
@@ -49,7 +49,7 @@ object PetPresets {
                 "gravity" to 3200f,
                 "restitution" to 0.85f,
                 "friction" to 0.45f,
-                "airDrag" to 0.995f,
+                "airDrag" to 0.30f,
                 "throwMultiplier" to 80f,
                 "throwSpin" to 0.002f,
                 "spinDamping" to 2.5f,
@@ -63,7 +63,7 @@ object PetPresets {
                 "gravity" to 5200f,
                 "restitution" to 0.08f,
                 "friction" to 0.95f,
-                "airDrag" to 0.96f,
+                "airDrag" to 2.45f,
                 "throwMultiplier" to 40f,
                 "throwSpin" to 0.0005f,
                 "spinDamping" to 6f,
@@ -77,7 +77,7 @@ object PetPresets {
                 "gravity" to 0f,
                 "restitution" to 0.6f,
                 "friction" to 0.2f,
-                "airDrag" to 0.998f,
+                "airDrag" to 0.12f,
                 "throwMultiplier" to 70f,
                 "throwSpin" to 0.001f,
                 "spinDamping" to 0.8f,

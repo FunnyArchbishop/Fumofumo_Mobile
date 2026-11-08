@@ -23,7 +23,7 @@ class PhysicsTest {
     private fun PetPhysics.run(seconds: Float, onStep: () -> Unit = {}) {
         val dt = 1f / 60f
         repeat((seconds / dt).toInt()) {
-            step(dt, 2500f, 0.3f, 0.8f, 0.985f, 3.5f)
+            step(dt, 2500f, 0.3f, 0.8f, 0.91f, 3.5f)
             onStep()
         }
     }
@@ -115,7 +115,7 @@ class PhysicsTest {
         val before = pet.rot.copyOf()
 
         val dt = 1f / 60f
-        repeat(240) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.985f, 3.5f, 2f) }
+        repeat(240) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.91f, 3.5f, 2f) }
 
         // 重心应垂到支点正下方
         assertTrue("重心应停在支点正下方附近，实际 dx=${pet.cx - 600f}", abs(pet.cx - 600f) < 8f)
@@ -129,7 +129,7 @@ class PhysicsTest {
         pet.grab(540f, 900f)        // 正中心，力臂为 0
         pet.dragTo(540f, 900f)
         val dt = 1f / 60f
-        repeat(120) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.985f, 3.5f, 2f) }
+        repeat(120) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.91f, 3.5f, 2f) }
         assertEquals("抓在重心上不该产生旋转", 1f, pet.rot[0], 1e-3f)
         assertEquals("位置也不该漂", 540f, pet.cx, 1e-3f)
     }
@@ -141,10 +141,34 @@ class PhysicsTest {
         pet.dragTo(620f, 940f)
         val dt = 1f / 60f
         // 摆 0.6 秒后记录一次偏移，再摆 2 秒后应该更小
-        repeat(36) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.985f, 3.5f, 2f) }
+        repeat(36) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.91f, 3.5f, 2f) }
         val early = abs(pet.cx - 620f)
-        repeat(120) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.985f, 3.5f, 2f) }
+        repeat(120) { pet.step(dt, 2500f, 0.3f, 0.8f, 0.91f, 3.5f, 2f) }
         val late = abs(pet.cx - 620f)
         assertTrue("摆动应逐渐收敛（early=$early late=$late）", late <= early + 1f)
+    }
+    // ---------- 空气阻力 ----------
+
+    @Test
+    fun zeroAirDragKeepsVelocity() {
+        val pet = newPet()
+        pet.grab(540f, 900f)
+        pet.release(1f, 0f, 100f, 0f)          // 水平速度 100 px/s
+        val v0 = pet.vx
+        val dt = 1f / 60f
+        // 重力设 0 避免落地摩擦干扰，阻力设 0
+        repeat(30) { pet.step(dt, 0f, 0.3f, 0.8f, 0f, 3.5f, 2f) }
+        assertEquals("空气阻力为 0 时速度应保持不变", v0, pet.vx, 0.5f)
+    }
+
+    @Test
+    fun highAirDragStopsThePetQuickly() {
+        val pet = newPet()
+        pet.grab(540f, 900f)
+        pet.release(1f, 0f, 100f, 0f)
+        val v0 = pet.vx
+        val dt = 1f / 60f
+        repeat(60) { pet.step(dt, 0f, 0.3f, 0.8f, 8f, 3.5f, 2f) }
+        assertTrue("阻力很大时 1 秒内应几乎停下（v0=$v0 v=${pet.vx}）", abs(pet.vx) < v0 * 0.01f)
     }
 }

@@ -13,6 +13,7 @@ import android.opengl.EGLSurface
 import android.opengl.GLES30
 import android.opengl.GLUtils
 import java.io.File
+import kotlin.math.abs
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -141,11 +142,17 @@ class PetRenderer(
     }
 
     fun endDrag(throwVx: Float, throwVy: Float) = synchronized(lock) {
-        physics.release(throwVx, throwVy, prefs.getFloat("throwMultiplier"), true)
+        physics.release(
+            throwVx, throwVy,
+            prefs.getFloat("throwMultiplier"),
+            prefs.getFloat("throwSpin")
+        )
     }
 
+    /** 双指拖动：横向 → 绕 Y 转，纵向 → 绕 X 转（带一点死区，手抖不会让模型自己转） */
     fun spinBy(deltaX: Float, deltaY: Float) = synchronized(lock) {
-        physics.rotateBy(deltaY * 0.006f, -deltaX * 0.006f, 0f, 1f)
+        if (abs(deltaX) < 0.6f && abs(deltaY) < 0.6f) return@synchronized
+        physics.rotateBy(deltaY * 0.0045f, -deltaX * 0.0045f, 0f, 1f)
     }
 
     // ---------------- GL 线程 ----------------
@@ -169,7 +176,8 @@ class PetRenderer(
                         prefs.getFloat("gravity"),
                         prefs.getFloat("restitution"),
                         prefs.getFloat("friction"),
-                        prefs.getFloat("airDrag")
+                        prefs.getFloat("airDrag"),
+                        prefs.getFloat("spinDamping")
                     )
                 }
 

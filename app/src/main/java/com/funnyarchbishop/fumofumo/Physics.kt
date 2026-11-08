@@ -2,6 +2,7 @@ package com.funnyarchbishop.fumofumo
 
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.exp
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -81,14 +82,13 @@ class PetPhysics {
         vy = 0f
     }
 
-    fun release(throwVx: Float, throwVy: Float, throwMultiplier: Float, spinFromThrow: Boolean) {
+    fun release(throwVx: Float, throwVy: Float, throwMultiplier: Float, throwSpin: Float) {
         dragging = false
         vx = throwVx * throwMultiplier
         vy = throwVy * throwMultiplier
-        if (spinFromThrow) {
-            wy += vx * 0.005f
-            wx += -vy * 0.005f
-        }
+        // 甩出去带一点翻滚，但要有上限，否则一甩就转个不停
+        wy += (vx * throwSpin).coerceIn(-MAX_SPIN, MAX_SPIN)
+        wx += (-vy * throwSpin).coerceIn(-MAX_SPIN, MAX_SPIN)
     }
 
     /** 双指手势：直接叠加一次旋转 */
@@ -99,20 +99,36 @@ class PetPhysics {
 
     // ---------------- 每帧推进 ----------------
 
-    fun step(dt: Float, gravity: Float, restitution: Float, friction: Float, airDrag: Float) {
+    fun step(
+        dt: Float,
+        gravity: Float,
+        restitution: Float,
+        friction: Float,
+        airDrag: Float,
+        spinDamping: Float
+    ) {
         if (dragging) return
 
         vy -= gravity * dt
         vx *= airDrag
         vy *= airDrag
-        wx *= airDrag
-        wy *= airDrag
-        wz *= airDrag
+
+        // 角速度按时间衰减（和帧率无关）。转得越快衰减得越快，免得一直打转
+        val spinDecay = exp(-(spinDamping.coerceAtLeast(0f)) * dt).toFloat()
+        wx *= spinDecay
+        wy *= spinDecay
+        wz *= spinDecay
+        wx = wx.coerceIn(-MAX_SPIN, MAX_SPIN)
+        wy = wy.coerceIn(-MAX_SPIN, MAX_SPIN)
+        wz = wz.coerceIn(-MAX_SPIN, MAX_SPIN)
+        if (abs(wx) < 0.02f) wx = 0f
+        if (abs(wy) < 0.02f) wy = 0f
+        if (abs(wz) < 0.02f) wz = 0f
 
         cx += vx * dt
         cy += vy * dt
 
-        if (abs(wx) > 0.01f || abs(wy) > 0.01f || abs(wz) > 0.01f) {
+        if (wx != 0f || wy != 0f || wz != 0f) {
             rot = mul3(rotationMatrix(wx, wy, wz, dt), rot)
         }
 
@@ -140,12 +156,16 @@ class PetPhysics {
         // 落地后逐渐安静下来，别在地面上抖
         if (minY < 10f && abs(vy) < 50f) {
             vx *= 0.85f
-            wz *= 0.85f
+            wz *= 0.8f
+            wx *= 0.85f
+            wy *= 0.85f
             if (abs(vx) < 3f && abs(wz) < 0.05f) {
                 vx = 0f
                 wz = 0f
                 wx *= 0.5f
                 wy *= 0.5f
+                if (abs(wx) < 0.05f) wx = 0f
+                if (abs(wy) < 0.05f) wy = 0f
             }
         }
     }
@@ -259,5 +279,10 @@ class PetPhysics {
             }
         }
         return out
+    }
+
+    companion object {
+        /** 角速度上限（弧度/秒），防止被打转 */
+        private const val MAX_SPIN = 9f
     }
 }

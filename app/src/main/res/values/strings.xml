@@ -53,6 +53,8 @@
     <string name="p_friction">摩擦</string>
     <string name="p_air_drag">空气阻力</string>
     <string name="p_throw">甩出力度</string>
+    <string name="p_throw_spin">甩出时翻滚</string>
+    <string name="p_spin_damping">旋转阻尼</string>
     <string name="p_scale">模型大小</string>
     <string name="p_height">占屏高度</string>
     <string name="p_ambient">环境光</string>

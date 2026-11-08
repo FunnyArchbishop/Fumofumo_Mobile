@@ -19,6 +19,8 @@ object Params {
         ParamSpec("friction", R.string.p_friction, 0f, 1f, 0.8f),
         ParamSpec("airDrag", R.string.p_air_drag, 0.9f, 1f, 0.985f),
         ParamSpec("throwMultiplier", R.string.p_throw, 0f, 200f, 60f),
+        ParamSpec("throwSpin", R.string.p_throw_spin, 0f, 0.01f, 0.0012f),
+        ParamSpec("spinDamping", R.string.p_spin_damping, 0.5f, 12f, 3.5f),
         ParamSpec("modelScale", R.string.p_scale, 0.2f, 3f, 1f),
         ParamSpec("heightRatio", R.string.p_height, 0.1f, 1f, 0.25f),
         ParamSpec("ambient", R.string.p_ambient, 0f, 1f, 0.65f),

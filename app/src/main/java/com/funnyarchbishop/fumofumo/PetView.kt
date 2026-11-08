@@ -5,6 +5,7 @@ import android.content.Context
 import android.graphics.SurfaceTexture
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.MotionEvent
 import android.view.TextureView
 import java.io.File
@@ -44,6 +45,7 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
     private var lastMultiY = 0f
     private var throwVx = 0f
     private var throwVy = 0f
+    private var lastMoveTime = 0L
 
     private val longPressRunnable = Runnable {
         if (!multiTouch) {
@@ -158,6 +160,9 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
                     multiTouch = true
                     lastMultiX = event.getX(0)
                     lastMultiY = event.getY(0)
+                    // 进入双指模式后不再沿用单指的速度
+                    throwVx = 0f
+                    throwVy = 0f
                     handler.removeCallbacks(longPressRunnable)
                 }
                 return true
@@ -183,6 +188,7 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
                     throwVy = wy - lastMoveY
                     lastMoveX = wx
                     lastMoveY = wy
+                    lastMoveTime = SystemClock.uptimeMillis()
                     r.dragTo(wx, wy)
                 }
                 return true
@@ -197,7 +203,9 @@ class PetView(context: Context) : TextureView(context), TextureView.SurfaceTextu
                 handler.removeCallbacks(longPressRunnable)
                 if (dragging) {
                     dragging = false
-                    r.endDrag(throwVx, throwVy)
+                    // 松手前停了一下就别把旧速度甩出去（不然会莫名其妙地飞/转）
+                    val stale = SystemClock.uptimeMillis() - lastMoveTime > 90L
+                    if (stale) r.endDrag(0f, 0f) else r.endDrag(throwVx, throwVy)
                 }
                 return true
             }

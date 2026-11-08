@@ -1,8 +1,10 @@
-﻿# Fumofumo-Mobile
+# Fumofumo_Mobile
 
 把 3D 桌宠搬到 Android：**悬浮在其他应用之上**的 fumo，能拖、能甩、能转、会掉到屏幕底部弹起来。
 
-这是桌面版 [WINobj](../WINobj) 的 Android 重写版。桌面版是 Python + Qt + moderngl，手机上这些都用不了，所以外壳整体重写成 Kotlin + OpenGL ES 3.0；物理和着色器从桌面版移植，手感一致。
+这是桌面版 [Fumofumo_Windows](https://github.com/FunnyArchbishop/Fumofumo_Windows)（原 WINobj）的 Android 重写版。桌面版是 Python + Qt + moderngl，手机上这些都用不了，所以外壳整体重写成 Kotlin + OpenGL ES 3.0；物理和着色器从桌面版移植，手感一致。
+
+模型可以从 [Fumofumo_Models](https://github.com/FunnyArchbishop/Fumofumo_Models) 下载（20 个 fumo 扫描件，CC BY 4.0）。
 
 ## 效果
 

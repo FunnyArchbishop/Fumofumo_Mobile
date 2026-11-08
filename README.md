@@ -153,6 +153,20 @@ app/src/main/java/com/funnyarchbishop/fumofumo/
 
 MIT。模型素材请自行注意原作者的授权（Sketchfab 上的模型多为 CC-BY，记得署名）。
 
+## 图标
+
+应用图标是仓库根目录的 `Fumofumo_icon.png`（1254×1254），已按 Android 各密度生成：
+
+```
+app/src/main/res/mipmap-mdpi/ic_launcher.png      48×48
+app/src/main/res/mipmap-hdpi/ic_launcher.png      72×72
+app/src/main/res/mipmap-xhdpi/ic_launcher.png     96×96
+app/src/main/res/mipmap-xxhdpi/ic_launcher.png   144×144
+app/src/main/res/mipmap-xxxhdpi/ic_launcher.png  192×192
+```
+
+通知栏小图标仍然是 `drawable/ic_pet.xml`（单色矢量）—— Android 会把通知小图标渲染成白色剪影，用彩色图会变成一团白块。
+
 ## 相关仓库
 
 | 仓库 | 说明 |

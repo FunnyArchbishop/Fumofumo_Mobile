@@ -38,6 +38,18 @@
 
 **贴图可以自己换。** 首页「自定义贴图」挑一张图片覆盖模型自带的贴图；「清除贴图」恢复原样。
 
+## 下载
+
+**直接装 APK**：到 [Releases](https://github.com/FunnyArchbishop/Fumofumo_Mobile/releases) 下载 `Fumofumo_Mobile-1.0.0.apk`（2.8 MB），传到手机安装即可。
+
+安装后：
+
+1. 打开 App，点「选择模型」挑一个 `.glb`
+2. 点状态栏里「悬浮窗权限：未授权」→ 去系统设置打开「显示在其他应用上层」
+3. 回到 App 点「启动桌宠」
+
+要求 Android 8.0（API 26）以上、支持 OpenGL ES 3.0 的 GPU。
+
 ## 构建
 
 用 Android Studio 直接打开这个目录，等 Gradle 同步完，点 Run。
@@ -49,6 +61,27 @@
 # 产物：app/build/outputs/apk/debug/app-debug.apk
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+### 打包正式 APK（签名）
+
+```bash
+./gradlew assembleRelease
+# 产物：app/build/outputs/apk/release/app-release.apk
+```
+
+签名信息从**项目根目录的 `keystore.properties`** 读取（该文件在 `.gitignore` 里，不进仓库）：
+
+```properties
+storeFile=D:/What Can IC/Fumo/keystore/fumofumo.jks
+storePassword=********
+keyAlias=fumofumo
+keyPassword=********
+```
+
+- 没有这个文件时会**退回 debug 签名**，照样能装，但无法覆盖安装正式版
+- 也可以改用环境变量：`FUMOFUMO_KEYSTORE` / `FUMOFUMO_STORE_PASSWORD` / `FUMOFUMO_KEY_ALIAS` / `FUMOFUMO_KEY_PASSWORD`
+
+> ⚠️ **密钥库 `fumofumo.jks` 一定要备份好。** 它存在仓库之外的 `D:\What Can IC\Fumo\keystore\`。丢了就再也无法给已安装的用户推送更新（只能让用户卸载重装）。
 
 > 仓库里的 `gradle-wrapper.properties` 把 Gradle 发行包指向了腾讯云镜像（`mirrors.cloud.tencent.com`），因为官方 `services.gradle.org` 在国内经常连不上。想换回官方源，把 `distributionUrl` 改成
 > `https\://services.gradle.org/distributions/gradle-8.9-bin.zip` 即可。

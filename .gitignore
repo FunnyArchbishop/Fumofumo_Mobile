@@ -2,6 +2,7 @@
 .gradle/
 build/
 local.properties
+.kotlin/
 
 # Android Studio / IntelliJ
 .idea/
@@ -20,4 +21,12 @@ captures/
 *.obj
 *.fbx
 *.circ
-.kotlin/
+
+# 签名文件绝不能进仓库
+keystore.properties
+*.jks
+*.keystore
+
+# 打包产物
+dist/
+*.apk

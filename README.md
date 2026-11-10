@@ -4,7 +4,7 @@
 
 这是桌面版 [Fumofumo_Windows](https://github.com/FunnyArchbishop/Fumofumo_Windows)（原 WINobj）的 Android 重写版。桌面版是 Python + Qt + moderngl，手机上这些都用不了，所以外壳整体重写成 Kotlin + OpenGL ES 3.0；物理和着色器从桌面版移植，手感一致。
 
-**21 个 fumo 模型已经内置在安装包里**，装完直接选就能用，不用另外找模型。
+**21 个 fumo 模型已经内置在安装包里**，装完直接就能用 —— 首次打开会自动导入**古明地恋**作为默认模型，不用先选。
 
 ## 内置的 21 个模型
 
@@ -12,7 +12,7 @@ APK 里带了 `assets/models/` 下的 21 个 `.glb`（共 76.5 MB），首页点
 
 | 角色 | 作者 | 面数 | | 角色 | 作者 | 面数 |
 | --- | --- | ---: | --- | --- | --- | ---: |
-| 博丽灵梦 | Renafox | 9,999 | | 古明地恋 | 203Null | 97,421 |
+| 博丽灵梦 | Renafox | 9,999 | | 古明地恋 ★默认 | 203Null | 97,421 |
 | 博丽灵梦（V2） | Renafox | 9,999 | | **古明地觉** | DAsh9986 | 42,371 |
 | 琪露诺 | Renafox | 10,000 | | 东风谷早苗 | 203Null | 49,903 |
 | 藤原妹红 | Renafox | 10,000 | | 洩矢诹访子 | 203Null | 50,000 |
@@ -65,7 +65,7 @@ APK 里带了 `assets/models/` 下的 21 个 `.glb`（共 76.5 MB），首页点
 
 ## 下载
 
-**直接装 APK**：到 [Releases](https://github.com/FunnyArchbishop/Fumofumo_Mobile/releases) 下载最新的 `Fumofumo_Mobile-1.1.0.apk`（79 MB，含 21 个内置模型），传到手机安装即可。
+**直接装 APK**：到 [Releases](https://github.com/FunnyArchbishop/Fumofumo_Mobile/releases) 下载最新的 `Fumofumo_Mobile-1.2.0.apk`（82.6 MB，含 21 个内置模型），传到手机安装即可。
 
 安装后：
 

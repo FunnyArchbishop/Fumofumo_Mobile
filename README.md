@@ -4,7 +4,32 @@
 
 这是桌面版 [Fumofumo_Windows](https://github.com/FunnyArchbishop/Fumofumo_Windows)（原 WINobj）的 Android 重写版。桌面版是 Python + Qt + moderngl，手机上这些都用不了，所以外壳整体重写成 Kotlin + OpenGL ES 3.0；物理和着色器从桌面版移植，手感一致。
 
-模型可以从 [Fumofumo_Models](https://github.com/FunnyArchbishop/Fumofumo_Models) 下载（20 个 fumo 扫描件，CC BY 4.0）。
+**21 个 fumo 模型已经内置在安装包里**，装完直接选就能用，不用另外找模型。
+
+## 内置的 21 个模型
+
+APK 里带了 `assets/models/` 下的 21 个 `.glb`（共 76.5 MB），首页点 **「内置模型（21 个）」** 就能选：
+
+| 角色 | 作者 | 面数 | | 角色 | 作者 | 面数 |
+| --- | --- | ---: | --- | --- | --- | ---: |
+| 博丽灵梦 | Renafox | 9,999 | | 古明地恋 | 203Null | 97,421 |
+| 博丽灵梦（V2） | Renafox | 9,999 | | **古明地觉** | DAsh9986 | 42,371 |
+| 琪露诺 | Renafox | 10,000 | | 东风谷早苗 | 203Null | 49,903 |
+| 藤原妹红 | Renafox | 10,000 | | 洩矢诹访子 | 203Null | 50,000 |
+| 魂魄妖梦 | Renafox | 9,999 | | 纯狐 | 203Null | 50,056 |
+| 风见幽香 | Renafox | 9,999 | | 露米娅 | 203Null | 99,862 |
+| 犬咲夜 | Renafox | 9,999 | | 河城荷取 | 203Null | 49,998 |
+| 西行寺幽幽子 | KBMollysuh | 27,077 | | 红美铃 | 203Null | 50,144 |
+| 西行寺幽幽子（V2） | Renafox | 10,000 | | 埴安神袿姬 | 203Null | 50,000 |
+| 蕾米莉亚·斯卡雷特 | scarletfumo | 11,135 | | | | |
+| 芙兰朵露·斯卡雷特 | Renafox | 10,134 | | | | |
+| 依神紫苑 | Renafox | 10,074 | | | | |
+
+全部 **CC BY 4.0**。App 内「内置模型」对话框右下角有 **「署名」** 按钮，列出每个模型的原名、作者和授权 —— 这是 CC BY 的署名要求，请勿删除。
+
+> 面数高的（古明地恋 97k、露米娅 100k）在低端机上可能掉帧，建议优先用 10k 左右的。
+
+清单定义在 [`BuiltInModels.kt`](app/src/main/java/com/funnyarchbishop/fumofumo/BuiltInModels.kt)，加模型只需把 `.glb` 放进 `app/src/main/assets/models/` 再往清单里加一行。
 
 ## 效果
 

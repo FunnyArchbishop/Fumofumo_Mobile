@@ -7,11 +7,13 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.method.ScrollingMovementMethod
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import java.util.Locale
@@ -25,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var notifStatus: TextView
     private lateinit var btnToggle: Button
     private lateinit var btnClearTexture: Button
+    private lateinit var btnBuiltIn: Button
 
     private val pickModel =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
@@ -46,6 +49,10 @@ class MainActivity : AppCompatActivity() {
         notifStatus = findViewById(R.id.notifStatus)
         btnToggle = findViewById(R.id.btnToggle)
         btnClearTexture = findViewById(R.id.btnClearTexture)
+        btnBuiltIn = findViewById(R.id.btnBuiltIn)
+
+        btnBuiltIn.text = getString(R.string.btn_builtin, BuiltInModels.ALL.size)
+        btnBuiltIn.setOnClickListener { showBuiltInModels() }
 
         findViewById<Button>(R.id.btnPickModel).setOnClickListener {
             // 支持多种格式，而且扩展名可能被改过，所以放开所有文件
@@ -69,18 +76,81 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
     }
 
+    // ---------------- 内置模型 ----------------
+
+    private fun showBuiltInModels() {
+        val models = BuiltInModels.ALL
+        val labels = models.map { m ->
+            "${m.name}   ·   ${m.author}   ·   ${"%,d".format(m.faces)} 面"
+        }.toTypedArray()
+
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.builtin_title, models.size))
+            .setItems(labels) { _, which -> applyBuiltIn(models[which]) }
+            .setNeutralButton(R.string.builtin_attribution) { _, _ -> showAttribution() }
+            .setNegativeButton(R.string.menu_cancel, null)
+            .show()
+    }
+
+    private fun applyBuiltIn(model: BuiltInModel) {
+        Toast.makeText(this, getString(R.string.importing_model, model.name), Toast.LENGTH_SHORT).show()
+        thread(name = "builtin-import") {
+            try {
+                val file = ModelRepository.importBuiltIn(this, model.asset)
+                PetPrefs(this).builtInAsset = model.asset
+                runOnUiThread {
+                    refreshStatus()
+                    Toast.makeText(
+                        this,
+                        getString(
+                            R.string.builtin_applied, model.name,
+                            String.format(Locale.US, "%.1f", file.length() / 1048576f)
+                        ),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    reloadPetIfRunning()
+                }
+            } catch (t: Throwable) {
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        getString(R.string.import_failed, t.message ?: "未知错误"),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
+    private fun showAttribution() {
+        val view = TextView(this).apply {
+            text = BuiltInModels.attributionText()
+            setPadding(48, 32, 48, 32)
+            textSize = 12f
+            movementMethod = ScrollingMovementMethod()
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.builtin_attribution_title)
+            .setView(view)
+            .setPositiveButton(R.string.btn_done, null)
+            .show()
+    }
+
     // ---------------- 状态 ----------------
 
     private fun refreshStatus() {
         val model = ModelRepository.modelFile(this)
-        modelStatus.text = if (model.isFile && model.length() > 0L) {
-            getString(
-                R.string.model_current,
-                model.name,
+        val builtIn = PetPrefs(this).builtInAsset?.takeIf { it.isNotEmpty() }?.let { BuiltInModels.byAsset(it) }
+        modelStatus.text = when {
+            !model.isFile || model.length() <= 0L -> getString(R.string.model_none)
+            builtIn != null -> getString(
+                R.string.model_builtin, builtIn.name, builtIn.author,
                 String.format(Locale.US, "%.1f MB", model.length() / 1048576f)
             )
-        } else {
-            getString(R.string.model_none)
+            else -> getString(
+                R.string.model_current, model.name,
+                String.format(Locale.US, "%.1f MB", model.length() / 1048576f)
+            )
         }
 
         val texture = ModelRepository.textureFile(this)
@@ -140,6 +210,7 @@ class MainActivity : AppCompatActivity() {
         thread(name = "model-import") {
             try {
                 val file = ModelRepository.importModel(this, uri)
+                PetPrefs(this).builtInAsset = ""   // 自定义模型，清掉内置标记
                 runOnUiThread {
                     refreshStatus()
                     Toast.makeText(

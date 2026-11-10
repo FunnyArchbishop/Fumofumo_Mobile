@@ -72,10 +72,19 @@
         </LinearLayout>
 
         <Button
-            android:id="@+id/btnPickModel"
+            android:id="@+id/btnBuiltIn"
             android:layout_width="match_parent"
             android:layout_height="52dp"
             android:layout_marginTop="20dp"
+            android:text="@string/btn_builtin"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnPickModel"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
             android:text="@string/btn_pick_model"
             android:textSize="15sp" />
 

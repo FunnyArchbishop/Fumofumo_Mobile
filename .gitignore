@@ -22,6 +22,9 @@ captures/
 *.fbx
 *.circ
 
+# 例外：内置进 APK 的模型必须进仓库，否则别人 clone 下来打不出包
+!app/src/main/assets/models/*.glb
+
 # 签名文件绝不能进仓库
 keystore.properties
 *.jks

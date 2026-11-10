@@ -22,8 +22,14 @@ android {
         applicationId = "com.funnyarchbishop.fumofumo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.1.0"
+    }
+
+    // 内置模型（assets/models/*.glb）本来就已经是压缩过的二进制，别再压一遍：
+    // 不压缩可以直接从 APK 里流式读，安装包也不会因为二次压缩而变慢
+    androidResources {
+        noCompress += listOf("glb")
     }
 
     signingConfigs {

@@ -42,6 +42,16 @@ object ModelRepository {
         textureFile(context).delete()
     }
 
+    /** 把 APK 内置的模型（assets 里的 models 目录）复制出来当作当前模型 */
+    fun importBuiltIn(context: Context, assetPath: String): File {
+        val target = modelFile(context)
+        context.assets.open(assetPath).use { src ->
+            target.outputStream().use { out -> src.copyTo(out, 1 shl 16) }
+        }
+        if (target.length() <= 0L) throw IllegalStateException("内置模型是空的：$assetPath")
+        return target
+    }
+
     private fun copy(context: Context, uri: Uri, target: File) {
         val input = context.contentResolver.openInputStream(uri)
             ?: throw IllegalStateException("打不开所选文件")

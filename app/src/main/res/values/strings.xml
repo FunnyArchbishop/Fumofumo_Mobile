@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Fumofumo</string>
     <string name="settings_title">参数设置</string>
@@ -7,10 +7,17 @@
 
     <string name="model_none">还没有选择模型</string>
     <string name="model_current">模型：%1$s（%2$s）</string>
+    <string name="model_builtin">模型：%1$s（内置）· 作者 %2$s · %3$s</string>
     <string name="texture_none">贴图：使用模型自带的贴图</string>
     <string name="texture_current">贴图：已自定义（%1$s）</string>
 
     <string name="btn_pick_model">选择模型（glb / gltf / obj / usdz / zip）</string>
+    <string name="btn_builtin">内置模型（%1$d 个）</string>
+    <string name="builtin_title">内置模型（%1$d 个）</string>
+    <string name="builtin_attribution">署名</string>
+    <string name="builtin_attribution_title">模型署名（CC BY 4.0）</string>
+    <string name="importing_model">正在导入 %1$s…</string>
+    <string name="builtin_applied">已切换：%1$s（%2$s MB）</string>
     <string name="btn_pick_texture">自定义贴图</string>
     <string name="btn_clear_texture">清除贴图</string>
     <string name="btn_start">启动桌宠</string>

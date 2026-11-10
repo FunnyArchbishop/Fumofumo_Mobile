@@ -77,7 +77,15 @@ class PetPrefs(context: Context) {
     fun matchesPreset(preset: PetPreset): Boolean =
         preset.values.all { (key, value) -> kotlin.math.abs(getFloat(key) - value) < 1e-6f }
 
+    /** 当前模型是从哪个内置模型导入的（assets 路径）；空字符串表示是用户自己选的模型 */
+    var builtInAsset: String
+        get() = sp.getString(KEY_BUILTIN, "") ?: ""
+        set(value) {
+            sp.edit().putString(KEY_BUILTIN, value).apply()
+        }
+
     companion object {
         const val KEY_FLIP = "flipTexture"
+        const val KEY_BUILTIN = "builtInAsset"
     }
 }

@@ -65,7 +65,7 @@ APK 里带了 `assets/models/` 下的 21 个 `.glb`（共 76.5 MB），首页点
 
 ## 下载
 
-**直接装 APK**：到 [Releases](https://github.com/FunnyArchbishop/Fumofumo_Mobile/releases) 下载 `Fumofumo_Mobile-1.0.0.apk`（2.8 MB），传到手机安装即可。
+**直接装 APK**：到 [Releases](https://github.com/FunnyArchbishop/Fumofumo_Mobile/releases) 下载最新的 `Fumofumo_Mobile-1.1.0.apk`（79 MB，含 21 个内置模型），传到手机安装即可。
 
 安装后：
 

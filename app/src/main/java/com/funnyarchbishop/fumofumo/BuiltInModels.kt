@@ -28,6 +28,15 @@ object BuiltInModels {
 
     private const val DIR = "models/"
 
+    /**
+     * 首次启动自动导入的默认模型。
+     * 古明地恋用的是 2048×2048 贴图的版本（Sketchfab 直接下载的只有 1024×1024，
+     * 几何完全一样，只是贴图糊一点）。
+     */
+    const val DEFAULT_ASSET = "${DIR}project-koishi-komeiji-fumo.glb"
+
+    fun default(): BuiltInModel = byAsset(DEFAULT_ASSET) ?: ALL.first()
+
     /** 按角色名排序，方便找 */
     val ALL: List<BuiltInModel> = listOf(
         BuiltInModel("$DIR/project-reimu-fumo-3d-scan.glb",

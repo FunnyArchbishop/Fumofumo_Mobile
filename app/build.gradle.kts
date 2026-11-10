@@ -22,8 +22,8 @@ android {
         applicationId = "com.funnyarchbishop.fumofumo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        versionCode = 3
+        versionName = "1.2.0"
     }
 
     // 内置模型（assets/models/*.glb）本来就已经是压缩过的二进制，别再压一遍：

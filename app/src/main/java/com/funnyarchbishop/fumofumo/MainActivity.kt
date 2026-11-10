@@ -69,6 +69,38 @@ class MainActivity : AppCompatActivity() {
         overlayStatus.setOnClickListener { requestOverlayPermission() }
 
         askNotificationPermission()
+        ensureDefaultModel()
+    }
+
+    /**
+     * 第一次打开（还没有任何模型）时自动导入内置的默认模型，
+     * 这样装完就能直接点「启动桌宠」，不用先去选模型。
+     */
+    private fun ensureDefaultModel() {
+        if (ModelRepository.exists(this)) return
+        val def = BuiltInModels.default()
+        thread(name = "default-import") {
+            try {
+                ModelRepository.importBuiltIn(this, def.asset)
+                PetPrefs(this).builtInAsset = def.asset
+                runOnUiThread {
+                    refreshStatus()
+                    Toast.makeText(
+                        this,
+                        getString(R.string.default_model_ready, def.name),
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } catch (t: Throwable) {
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        getString(R.string.import_failed, t.message ?: "未知错误"),
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
     }
 
     override fun onResume() {

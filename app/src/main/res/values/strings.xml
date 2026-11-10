@@ -18,6 +18,7 @@
     <string name="builtin_attribution_title">模型署名（CC BY 4.0）</string>
     <string name="importing_model">正在导入 %1$s…</string>
     <string name="builtin_applied">已切换：%1$s（%2$s MB）</string>
+    <string name="default_model_ready">已准备好默认模型：%1$s（可在「内置模型」里换）</string>
     <string name="btn_pick_texture">自定义贴图</string>
     <string name="btn_clear_texture">清除贴图</string>
     <string name="btn_start">启动桌宠</string>
